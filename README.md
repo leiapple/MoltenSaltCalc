@@ -27,7 +27,7 @@ pip install -e .
 * Matplotlib
 
 ## Project tructure
-
+```
 moltensaltcalc/
 ├── src/
 │   ├── __init__.py          # Package exports
@@ -36,7 +36,7 @@ moltensaltcalc/
 │   └── utils.py             # Utility functions
 ├── pyproject.toml          # Build configuration
 └── README.md               # This file
-
+```
 
 ## License
 
