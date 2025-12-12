@@ -36,3 +36,12 @@ moltensaltcalc/
 │   └── utils.py             # Utility functions
 ├── pyproject.toml          # Build configuration
 └── README.md               # This file
+
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For questions, issues, or feature requests, please open an issue on the [GitHub repository](https://github.com/leiapple/MoltenSaltCalc).
