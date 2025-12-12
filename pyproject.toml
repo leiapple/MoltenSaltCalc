@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moltensaltcalc"
+version = "0.0.1"
+authors = [
+    {name = "Max van Brenk", email = "lei.apple.141592@gmail.com"},
+]
+description = "Molten salt simulation package"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.setuptools.packages.find]
+where = ["moltensaltcalc"]
