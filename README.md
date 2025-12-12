@@ -13,11 +13,11 @@ A Python package for simulating and analyzing molten salt properties using machi
 ## Installation
 
 ### Basic Installation
-`
-git clone https://github.com/yourusername/moltensaltcalc.git
+```
+git clone https://github.com/leiapple/moltensaltcalc.git
 cd moltensaltcalc
 pip install -e .
-`
+```
 ### Requirements
 
 * Python >= 3.8
