@@ -2,6 +2,10 @@
 
 A Python package for simulating and analyzing molten salt properties using machine learning potentials.
 
+## author
+ 
+Max van Brenk
+
 ## Features
 
 - Build Systems: Construct molten salt systems with customizable compositions
