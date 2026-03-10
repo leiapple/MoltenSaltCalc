@@ -1,43 +1,44 @@
 # MoltenSaltCalc
 
-A Python package for simulating and analyzing molten salt properties using machine learning potentials.
+A Python package for simulating and analyzing molten salt properties using machine learning potentials (MLPs).
 
-## author
- 
+## Author
+
 Max van Brenk
 
 ## Features
 
 - Build Systems: Construct molten salt systems with customizable compositions
-- ML Potential Integration: Support for FAIRCHEM, MACE, and GRACE machine learning potentials
+- MLP Integration: Support for FAIRCHEM, MACE, and GRACE MLPs
 - Molecular Dynamics: Run NPT (constant pressure-temperature) and NVT (constant volume-temperature) simulations
 - Property Analysis: Compute density, thermal expansion, heat capacity, diffusion coefficients, viscosity, and radial distribution functions
-- Visualization: Built-in plotting for analysis results
+- Visualization: Built-in plotting for analysis of the results
 
 ## Installation
 
 ### Basic Installation
-```
+```bash
 git clone https://github.com/leiapple/moltensaltcalc.git
 cd moltensaltcalc
+uv venv --python 3.12 # optionally add a name (generate the venv in a non shared-drive (e.g. onedrive) folder, it will cause problems later)
+.venv/Scripts/activate # for windows (ensure script execution is allowed for remote signed scripts, in case if fails run: "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser")
+. .venv/bin/activate # for linux/mac
+uv pip install -r requirements.txt
 pip install -e .
 ```
-### Requirements
 
-* Python >= 3.8
-* ASE (Atomic Simulation Environment)
-* NumPy
-* SciPy
-* Matplotlib
-
-## Project tructure
+## Project Structure
 ```
 moltensaltcalc/
-├── src/
+├── moltensaltcalc/
 │   ├── __init__.py          # Package exports
 │   ├── simulator.py         # MoltenSaltSimulator class
 │   ├── analyzer.py          # MoltenSaltAnalyzer class
 │   └── utils.py             # Utility functions
+├── demo/
+│   ├── TODO
+├── tests/
+│   ├── TODO
 ├── pyproject.toml          # Build configuration
 └── README.md               # This file
 ```
