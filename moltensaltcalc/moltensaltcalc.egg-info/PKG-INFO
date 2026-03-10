@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: moltensaltcalc
-Version: 0.0.1
-Summary: Molten salt simulation package
-Author-email: Max van Brenk <lei.apple.141592@gmail.com>
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-
-# MoltenSalt-Calc
