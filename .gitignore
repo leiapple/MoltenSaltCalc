@@ -1,7 +1,12 @@
-# Space for customn gitignore rules
+# Space for custom gitignore rules
+# TODO: Take me out again
 Molten Salt Simulator.ipynb
+# Directory to store trajectory data for tests
+test_sim/
 
-# Template from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
+# ==========================================================================================
+#   Template from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
+# ==========================================================================================
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
