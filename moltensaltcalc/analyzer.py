@@ -2,7 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from ase import units
+from ase import Atoms, units
 from ase.geometry.analysis import Analysis
 from ase.io import Trajectory
 
@@ -36,14 +36,14 @@ class MoltenSaltAnalyzer:
         volumes = [atoms.get_volume() for atoms in traj]
         equilibrium_volume = np.mean(volumes[-int(len(volumes) * 0.1) :])
 
-        masses = traj[0].get_masses().sum() * 1.66054e-24  # g
+        masses = traj[0].get_masses().sum() * units._amu * 1e3  # g
         density = masses / (equilibrium_volume * 1e-24)  # g/cm³
 
         return density
 
-    def plot_density_vs_time(self, traj_file, title="Density vs Time"):
+    def compute_plot_density_vs_time(self, traj_file, title, fig_path):
         """
-        Plot density evolution during simulation.
+        Compute and plot density evolution during simulation.
 
         Parameters:
         -----------
@@ -51,22 +51,30 @@ class MoltenSaltAnalyzer:
             Path to trajectory file
         title : str
             Plot title
+        fig_path : str
+            Filename for saving the plot
+
+        Returns:
+        -----------
+        densities: list
+            List of densities at each time step
         """
         traj = Trajectory(traj_file)
 
         volumes = [atoms.get_volume() for atoms in traj]
-        masses = traj[0].get_masses().sum() * 1.66054e-24
+        masses = traj[0].get_masses().sum() * units._amu * 1e3  # g
 
         densities = masses / (np.array(volumes) * 1e-24)
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(densities)
-        plt.title(title)
-        plt.xlabel("Time step")
-        plt.ylabel("Density (g/cm³)")
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.show()
+        # Plot density evolution
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(densities)
+        ax.set_title(title)
+        ax.set_xlabel("Time step")
+        ax.set_ylabel("Density (g/cm³)")
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(fig_path)
 
         return densities
 
@@ -143,18 +151,22 @@ class MoltenSaltAnalyzer:
             [
                 atoms.get_kinetic_energy()
                 + atoms.get_potential_energy()
-                + units.bar * atoms.get_volume() * 1e-30 / units.eV
+                + units.bar
+                * atoms.get_volume()
+                * 1e-30
+                / units.eV  # TODO: Check if this is correct: units.eV is 1, but he probably wanted a conversion factor here?
+                # TODO: Where is P here? I only see units.bar, but not the actual pressure?
                 for atoms in traj
             ]
         )
 
         # Use last 10% for equilibrium
         H_equil = H[-int(0.1 * len(H)) :]
-        var_H = np.var(H_equil, ddof=1) * (1.60218e-19) ** 2  # Convert to J²
+        var_H = np.var(H_equil, ddof=1) * (units._e**2)  # Convert to J²
 
-        mass_total = traj[0].get_masses().sum() * 1.66054e-24  # g
+        mass_total = traj[0].get_masses().sum() * units._amu * 1e3  # g
 
-        Cp = var_H / (1.380649e-23 * T**2 * mass_total)  # J/g/K
+        Cp = var_H / (units._k * T**2 * mass_total)  # J/g/K
 
         return Cp
 
@@ -203,7 +215,6 @@ class MoltenSaltAnalyzer:
         dict
             Dictionary with Arrhenius parameters
         """
-        R = 8.314462618  # J/mol/K
 
         temp = np.array(temperatures)
         D = np.array(diffusion_coeffs)
@@ -213,7 +224,7 @@ class MoltenSaltAnalyzer:
         y = np.log(D)
 
         m, b = np.polyfit(x, y, 1)
-        Ea = -m * R  # J/mol
+        Ea = -m * units._k * units.mol  # J/mol
         D0 = np.exp(b)  # Å²/fs
 
         return {"Ea": Ea, "D0": D0, "slope": m, "intercept": b}
@@ -345,8 +356,8 @@ class MoltenSaltAnalyzer:
         for comp in [p_xy, p_xz, p_yz]:
             comp -= np.mean(comp)
 
-        # Convert to Pa
-        conv = 1.60218e11
+        # Convert eV/A^3 to Pa = J/m³
+        conv = units._e / 1e-30
         p_xy *= conv
         p_xz *= conv
         p_yz *= conv
@@ -366,13 +377,13 @@ class MoltenSaltAnalyzer:
             autocorr(p_xy, nmax) + autocorr(p_xz, nmax) + autocorr(p_yz, nmax)
         ) / 3.0
 
-        dt = 1.0 * 1e-15
+        dt = 1.0 * 1e-15  # TODO: This does not necessarily hold!
         times = np.arange(ac_mean.size) * dt
 
         V = np.mean([atoms.get_volume() for atoms in traj]) * 1e-30
         integral = np.trapz(ac_mean, times)
 
-        eta = V * integral / (1.380649e-23 * T)
+        eta = V * integral / (units._k * T)
 
         return eta
 
@@ -421,3 +432,39 @@ class MoltenSaltAnalyzer:
                 results["viscosities"].append(np.nan)
 
         return results
+
+
+# Example usage
+if __name__ == "__main__":
+    # Assumes the NPT and NVT trajectories have already been generated with the simulator
+    run_folder = os.path.join("test_sim", "GRACE_1L_NaCl_long")
+    npt_dir = os.path.join(os.getcwd(), run_folder, "NPT")
+    nvt_dir = os.path.join(os.getcwd(), run_folder, "NVT")
+    salts = {"NaCl": [1100, 1150, 1200][:1]}
+
+    analyzer = MoltenSaltAnalyzer()
+
+    # Ensure the plot directory exists
+    os.makedirs(os.path.join("test_sim", "plots"), exist_ok=True)
+
+    for salt_name, temps in salts.items():
+        for T in temps:
+            npt_traj = os.path.join(npt_dir, f"npt_{salt_name}_{T}K.traj")
+            nvt_traj = os.path.join(nvt_dir, f"nvt_{salt_name}_{T}K.traj")
+
+            # ===================================================================================
+            #   Density vs. Time
+            # ===================================================================================
+            densities = analyzer.compute_plot_density_vs_time(
+                npt_traj,
+                title=f"Density Evolution — {salt_name} — {T}K",
+                fig_path=os.path.join(
+                    "test_sim", "plots", f"density_evolution_{salt_name}_{T}K.png"
+                ),
+            )
+
+        # ===================================================================================
+        #   Thermal Expansion
+        # ===================================================================================
+        result = analyzer.compute_thermal_expansion(npt_dir, salt_name, temps)
+        print(f"Thermal expansion:  β = {result['thermal_expansion']:.6e} 1/K")

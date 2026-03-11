@@ -15,16 +15,19 @@ class MoltenSaltSimulator:
     Class for building molten salt systems and running molecular dynamics simulations.
     """
 
-    def __init__(self, model_name="uma-s-1", device="cuda"):
+    def __init__(self, model_name="GRACE", model_parameters=None, device="cuda"):
         """Initialize the simulator with a specific ML potential."""
         self.device = device
         self.calc = None
-        self.set_calculator(model_name, {})
+        self.set_calculator(model_name, model_parameters)
 
     def set_calculator(self, model_name, model_parameters=None):
         """Set up the calculator based on the chosen ML potential."""
         if model_parameters is None:
             model_parameters = {}
+
+        # Raises an exception at the end of the function if no match was found
+        calculator_unavailable = False
 
         if model_name == "fairchem" or model_name == "FAIRCHEM":
             from fairchem.core import FAIRChemCalculator, pretrained_mlip
@@ -44,7 +47,7 @@ class MoltenSaltSimulator:
                     predictor, task_name=model_parameters.get("model_task")
                 )
             else:
-                raise ValueError("This calculator type is not included in this package")
+                calculator_unavailable = True
 
         elif model_name == "MACE" or model_name == "mace":
             from mace.calculators import mace_mp
@@ -54,7 +57,7 @@ class MoltenSaltSimulator:
                     model="mace-mh-1.model", default_dtype="float64", device=self.device
                 )
             else:
-                raise ValueError("This calculator type is not included in this package")
+                calculator_unavailable = True
 
         elif model_name == "GRACE" or model_name == "grace":
             from tensorpotential.calculator.foundation_models import (
@@ -68,10 +71,15 @@ class MoltenSaltSimulator:
             ):
                 self.calc = grace_fm(GRACEModels.GRACE_1L_OMAT)
             else:
-                raise ValueError("This calculator type is not included in this package")
+                calculator_unavailable = True
 
         else:
-            raise ValueError(f"Calculator '{model_name}' is not supported")
+            raise ValueError(f"Model '{model_name}' has no available calculators")
+
+        if calculator_unavailable:
+            raise ValueError(
+                f"The model {model_name} has no calculator with the parameters: {model_parameters}"
+            )
 
         return self.calc
 
@@ -112,11 +120,12 @@ class MoltenSaltSimulator:
         atoms : ASE Atoms object
             The constructed system
         """
-        if len(salt_anion) != len(anion_Natoms) or len(salt_cation) != len(
-            cation_Natoms
+        if (len(salt_anion), len(salt_cation)) != (
+            len(anion_Natoms),
+            len(cation_Natoms),
         ):
             raise ValueError(
-                "The number of salts and their number of atoms should be the same"
+                f"The number of distinct ions {(len(salt_anion), len(salt_cation))} and the length of the list of atoms {(len(anion_Natoms), len(cation_Natoms))} must be equal"
             )
 
         # Create symbols list
@@ -128,8 +137,11 @@ class MoltenSaltSimulator:
 
         # Calculate initial box size from density guess
         mass = (
-            sum(atomic_masses[atomic_numbers[sym]] for sym in symbols) * 1.66054e-24
+            sum(atomic_masses[atomic_numbers[sym]] for sym in symbols)
+            * units._amu
+            * 1e3
         )  # g
+        # TODO: This is very much not nice for FP numbers, we first go *1e-24, then *1e24 for initial_box_size
         volume_guess = mass / density_guess  # cm³
         initial_box_size = (volume_guess * 1e24) ** (1 / 3)  # Å
 
@@ -138,6 +150,7 @@ class MoltenSaltSimulator:
         positions_atoms = np.zeros((len(symbols), 3))
 
         for i in range(len(symbols)):
+            # TODO: Not nice at all, this could lead to an infinite loop in case the box is too small. But we need to replace this anyways with a better initial placement
             while True:
                 new_pos = np.random.rand(3) * initial_box_size
                 if i == 0:
@@ -215,13 +228,9 @@ class MoltenSaltSimulator:
 
             def print_status_func():
                 step = dyn.get_number_of_steps()
-                stress_tensor = atoms.get_stress(voigt=False) * 1.60218e6
+                stress_tensor = atoms.get_stress(voigt=False) * 1 / units.bar
                 pressure = -np.trace(stress_tensor) / 3
-                p_xy, p_xz, p_yz = (
-                    stress_tensor[0, 1],
-                    stress_tensor[0, 2],
-                    stress_tensor[1, 2],
-                )
+                # TODO: Why do we print the pressure when it's supposed to be constant?
                 print(
                     f"Step {step:6d} | P = {pressure:.6e} bar | V = {atoms.get_volume():8.2f} Å³"
                 )
@@ -282,7 +291,7 @@ class MoltenSaltSimulator:
 
             def print_status_func():
                 step = dyn.get_number_of_steps()
-                stress_tensor = atoms.get_stress(voigt=False) * 1.60218e6
+                stress_tensor = atoms.get_stress(voigt=False) * 1 / units.bar
                 pressure = -np.trace(stress_tensor) / 3
                 print(
                     f"Step {step:6d} | P = {pressure:.6e} bar | V = {atoms.get_volume():8.2f} Å³"
@@ -293,3 +302,65 @@ class MoltenSaltSimulator:
         dyn.run(steps)
         trajectory_nvt.close()
         print(f"NVT trajectory saved to {traj_file}")
+
+
+# Example usage
+if __name__ == "__main__":
+    np.random.seed(42)  # For reproducibility of the initial random placements
+    # Setup the MS simulator class with the desired model and parameters
+    sim = MoltenSaltSimulator(
+        model_name="GRACE", model_parameters={"model_size": "small", "layer": 1}
+    )
+    n_steps = 200000  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps, but for testing it can be lower
+    # Define salts to simulate like:   "salt_name": ([anions], [cations], amount_of_anions, amount_of_cations)
+    salts = {
+        "NaCl": (["Cl"], ["Na"], [150], [150]),
+        # "0.3NaCl-0.2KCl-0.5MgCl2": (["Cl"], ["K", "Mg", "Na"], [150], [20, 50, 30]),
+    }  # To test a size of like 20 ions for each is appropriate
+    # Define at which temperatures you want to calculate the properties per salt
+    temperatures = {
+        "NaCl": [1100, 1125, 1150, 1175, 1200][
+            :2
+        ],  # TODO: Release the others when testing further
+        "0.3NaCl-0.2KCl-0.5MgCl2": [700, 800, 900, 1000, 1100],
+    }  # For testing 3 is enough
+    # Define what density you guess the salt to have at the corresponding temperatures
+    density_guesses = {
+        "NaCl": [1.542, 1.528, 1.515, 1.501, 1.488],
+        "0.3NaCl-0.2KCl-0.5MgCl2": [1.761, 1.719, 1.677, 1.635, 1.593],
+    }  # For testing 3 is enough
+
+    # Run the simulation
+    for salt_name, (anions, cations, n_anions, n_cations) in salts.items():
+        print(f"Running NPT simulations for {salt_name}...")
+
+        # Create folders to store the trajectories
+        npt_dir, nvt_dir = sim.create_simulation_folder(
+            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_long")
+        )
+
+        # Pair each temperature with its corresponding density guess
+        for T, density_guess in zip(
+            temperatures[salt_name], density_guesses[salt_name]
+        ):
+            atoms = sim.build_system(
+                anions, cations, n_anions, n_cations, density_guess
+            )
+            traj_file_npt = os.path.join(npt_dir, f"npt_{salt_name}_{T}K.traj")
+            traj_file_nvt = os.path.join(nvt_dir, f"nvt_{salt_name}_{T}K.traj")
+            sim.run_npt_simulation(
+                atoms,
+                T,
+                steps=n_steps,
+                print_interval=n_steps / 10,
+                traj_file=traj_file_npt,
+                print_status=True,
+            )
+            sim.run_nvt_simulation(
+                atoms,
+                T,
+                steps=n_steps,
+                print_interval=n_steps / 10,
+                traj_file=traj_file_nvt,
+                print_status=True,
+            )
