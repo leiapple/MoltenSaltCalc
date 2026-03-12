@@ -3,6 +3,8 @@
 Molten Salt Simulator.ipynb
 # Directory to store trajectory data for tests
 test_sim/
+simulation_results/
+plots/
 
 # ==========================================================================================
 #   Template from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
