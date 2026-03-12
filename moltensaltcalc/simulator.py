@@ -2,8 +2,9 @@ import os
 
 import numpy as np
 from ase import Atoms, units
+from ase.build import bulk
 from ase.data import atomic_masses, atomic_numbers
-from ase.io import Trajectory
+from ase.io import Trajectory, write
 from ase.md.nose_hoover_chain import NoseHooverChainNVT
 from ase.md.nptberendsen import NPTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
@@ -97,10 +98,16 @@ class MoltenSaltSimulator:
         return npt_dir, nvt_dir
 
     def build_system(
-        self, salt_anion, salt_cation, anion_Natoms, cation_Natoms, density_guess
+        self,
+        salt_anion,
+        salt_cation,
+        anion_Natoms,
+        cation_Natoms,
+        density_guess,
+        lattice="random",
     ):
         """
-        Build a molten salt system with random initial positions.
+        Build a molten salt system with random or rocksalt initial positions.
 
         Parameters:
         -----------
@@ -114,6 +121,8 @@ class MoltenSaltSimulator:
             Number of atoms for each cation type
         density_guess : float
             Initial density guess (g/cm³)
+        lattice : str
+            Initial lattice type ("random" or "rocksalt")
 
         Returns:
         --------
@@ -128,46 +137,97 @@ class MoltenSaltSimulator:
                 f"The number of distinct ions {(len(salt_anion), len(salt_cation))} and the length of the list of atoms {(len(anion_Natoms), len(cation_Natoms))} must be equal"
             )
 
-        # Create symbols list
-        symbols = []
-        for element, amount_of_atoms in zip(salt_anion, anion_Natoms):
-            symbols += [element] * amount_of_atoms
-        for element, amount_of_atoms in zip(salt_cation, cation_Natoms):
-            symbols += [element] * amount_of_atoms
+        # Construct the symbols array by spreading anions and cations evenly, shuffled within their groups
+        cations = np.random.permutation(np.repeat(salt_cation, cation_Natoms))
+        anions = np.random.permutation(np.repeat(salt_anion, anion_Natoms))
+        Ntot = len(cations) + len(anions)
+        idx = np.linspace(0, Ntot - 1, len(cations), dtype=int)
+        mask = np.zeros(Ntot, dtype=bool)
+        mask[idx] = True
+        symbols = np.empty(Ntot, dtype="<U2")
+        symbols[mask] = cations
+        symbols[~mask] = anions
 
         # Calculate initial box size from density guess
-        mass = (
-            sum(atomic_masses[atomic_numbers[sym]] for sym in symbols)
-            * units._amu
-            * 1e3
-        )  # g
-        # TODO: This is very much not nice for FP numbers, we first go *1e-24, then *1e24 for initial_box_size
-        volume_guess = mass / density_guess  # cm³
-        initial_box_size = (volume_guess * 1e24) ** (1 / 3)  # Å
+        mass = sum(atomic_masses[atomic_numbers[sym]] for sym in symbols)  # amu
+        # The density_guess needs to be converted from g/cm³ to amu/Å³
+        density_guess_au = density_guess * 1e3 / (units._amu * units.m**3)
+        volume_guess = mass / density_guess_au  # Å³
 
-        # Place atoms with minimum distance constraint
-        min_distance = 1.6  # Å
-        positions_atoms = np.zeros((len(symbols), 3))
+        if lattice == "random":
+            initial_box_size = volume_guess ** (1 / 3)  # Å
+            # Place atoms with minimum distance constraint
+            min_distance = 1.6  # Å
+            positions_atoms = np.zeros((len(symbols), 3))
+            for i in range(len(symbols)):
+                # TODO: Not so nice, this could lead to an infinite loop in case the box is too small. But we need to replace this anyways with a better initial placement
+                while True:
+                    new_pos = np.random.rand(3) * initial_box_size
+                    if i == 0:
+                        positions_atoms[i] = new_pos
+                        break
+                    distances = cdist([new_pos], positions_atoms[:i])
+                    if np.all(distances > min_distance):
+                        positions_atoms[i] = new_pos
+                        break
 
-        for i in range(len(symbols)):
-            # TODO: Not nice at all, this could lead to an infinite loop in case the box is too small. But we need to replace this anyways with a better initial placement
-            while True:
-                new_pos = np.random.rand(3) * initial_box_size
-                if i == 0:
-                    positions_atoms[i] = new_pos
-                    break
-                distances = cdist([new_pos], positions_atoms[:i])
-                if np.all(distances > min_distance):
-                    positions_atoms[i] = new_pos
-                    break
+                # Create ASE Atoms object
+                atoms = Atoms(
+                    symbols=symbols,
+                    positions=positions_atoms,
+                    cell=[initial_box_size] * 3,
+                    pbc=True,
+                )
 
-        # Create ASE Atoms object
-        atoms = Atoms(
-            symbols=symbols,
-            positions=positions_atoms,
-            cell=[initial_box_size] * 3,
-            pbc=True,
-        )
+        elif lattice == "rocksalt":
+            # Generate an rocksalt lattice with arbitrary symbols and lattice constant of 1 A
+            atoms = bulk("XY", "rocksalt", a=1.0)
+            cells_per_side = int(
+                np.ceil((len(symbols) / 2) ** (1 / 3))
+            )  #  Two atoms per rocksalt unit cell
+            # Generate enough lattice positions to accommodate all atoms
+            atoms = atoms.repeat((cells_per_side, cells_per_side, cells_per_side))
+            # Randomly remove excess positions
+            if len(atoms) > len(symbols):
+                num_positions_to_remove = len(atoms) - len(symbols)
+                cat_indices_to_remove = np.random.choice(
+                    np.arange(0, len(atoms), 2),
+                    size=num_positions_to_remove // 2,
+                    replace=False,
+                )
+                an_indices_to_remove = np.random.choice(
+                    np.arange(1, len(atoms), 2),
+                    size=num_positions_to_remove // 2,
+                    replace=False,
+                )
+                indices_to_remove = np.sort(
+                    np.concatenate((cat_indices_to_remove, an_indices_to_remove))
+                )
+                atoms = atoms[np.setdiff1d(np.arange(len(atoms)), indices_to_remove)]
+            # Populate with the correct chemical symbols
+            atoms.set_chemical_symbols(symbols)
+
+            # Rescale the lattice to match the density guess
+            scale = (volume_guess / atoms.get_volume()) ** (1 / 3)
+            atoms.set_cell(atoms.get_cell() * scale, scale_atoms=True)
+
+            # TODO: Remove these lines, just for testing
+            write("scaled_str.png", atoms)
+            write("scaled_an.png", atoms[::2])
+            write("scaled_cat.png", atoms[1::2])
+            # Calculate the initial density
+            density_guess_calc = (
+                atoms.get_masses().sum()
+                * units._amu
+                * 1e3
+                / (atoms.get_volume() * 1e-24)
+            )
+            print(
+                f"Initial density guess after calculation: {density_guess_calc:.3f} g/cm3"
+            )
+
+        else:
+            raise ValueError(f"Unsupported lattice type: {lattice}")
 
         if self.calc:
             atoms.calc = self.calc
@@ -222,7 +282,9 @@ class MoltenSaltSimulator:
         )
 
         trajectory_npt = Trajectory(traj_file, "w", atoms)
-        dyn.attach(trajectory_npt.write, interval=10)
+        dyn.attach(
+            trajectory_npt.write, interval=10
+        )  # TODO: As only every tenth frame is recorded, we only record every 10 fs => Check if Max's simulations were 200 ps or 2000 ps?
 
         if print_status:
 
@@ -311,7 +373,8 @@ if __name__ == "__main__":
     sim = MoltenSaltSimulator(
         model_name="GRACE", model_parameters={"model_size": "small", "layer": 1}
     )
-    n_steps = 200000  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps, but for testing it can be lower
+    n_steps = 100  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps, but for testing it can be lower
+    n_steps_output = 10
     # Define salts to simulate like:   "salt_name": ([anions], [cations], amount_of_anions, amount_of_cations)
     salts = {
         "NaCl": (["Cl"], ["Na"], [150], [150]),
@@ -319,9 +382,7 @@ if __name__ == "__main__":
     }  # To test a size of like 20 ions for each is appropriate
     # Define at which temperatures you want to calculate the properties per salt
     temperatures = {
-        "NaCl": [1100, 1125, 1150, 1175, 1200][
-            :2
-        ],  # TODO: Release the others when testing further
+        "NaCl": [1100, 1125, 1150, 1175, 1200][:1],
         "0.3NaCl-0.2KCl-0.5MgCl2": [700, 800, 900, 1000, 1100],
     }  # For testing 3 is enough
     # Define what density you guess the salt to have at the corresponding temperatures
@@ -336,7 +397,7 @@ if __name__ == "__main__":
 
         # Create folders to store the trajectories
         npt_dir, nvt_dir = sim.create_simulation_folder(
-            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_long")
+            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_test")
         )
 
         # Pair each temperature with its corresponding density guess
@@ -344,7 +405,7 @@ if __name__ == "__main__":
             temperatures[salt_name], density_guesses[salt_name]
         ):
             atoms = sim.build_system(
-                anions, cations, n_anions, n_cations, density_guess
+                anions, cations, n_anions, n_cations, density_guess, lattice="rocksalt"
             )
             traj_file_npt = os.path.join(npt_dir, f"npt_{salt_name}_{T}K.traj")
             traj_file_nvt = os.path.join(nvt_dir, f"nvt_{salt_name}_{T}K.traj")
@@ -352,7 +413,7 @@ if __name__ == "__main__":
                 atoms,
                 T,
                 steps=n_steps,
-                print_interval=n_steps / 10,
+                print_interval=n_steps_output,
                 traj_file=traj_file_npt,
                 print_status=True,
             )
@@ -360,7 +421,7 @@ if __name__ == "__main__":
                 atoms,
                 T,
                 steps=n_steps,
-                print_interval=n_steps / 10,
+                print_interval=n_steps_output,
                 traj_file=traj_file_nvt,
                 print_status=True,
             )
