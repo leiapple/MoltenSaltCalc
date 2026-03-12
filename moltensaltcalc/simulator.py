@@ -71,6 +71,11 @@ class MoltenSaltSimulator:
                 and model_parameters.get("layer") == 1
             ):
                 self.calc = grace_fm(GRACEModels.GRACE_1L_OMAT)
+            elif (
+                model_parameters.get("model_size") == "medium"
+                and model_parameters.get("layer") == 1
+            ):
+                self.calc = grace_fm(GRACEModels.GRACE_1L_OMAT_medium_base)
             else:
                 calculator_unavailable = True
 
