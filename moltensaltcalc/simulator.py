@@ -251,7 +251,10 @@ class MoltenSaltSimulator:
         timestep_fs=1.0,
         taut_fs=100.0,
         taup_fs=1000.0,
+        compressibility_per_bar=4.0e-5,
+        pressure_bar=1.01325,
         print_interval=100,
+        write_interval=10,
         traj_file="npt_simulation.traj",
         print_status=True,
     ):
@@ -266,8 +269,20 @@ class MoltenSaltSimulator:
             Temperature (K)
         steps : int
             Number of MD steps
+        timestep_fs : float
+            Time step dt for the simulation in femtoseconds
+        taut_fs : float
+            Time constant for Berendsen temperature coupling in femtoseconds
+        taup_fs : float
+            Time constant for Berendsen pressure coupling in femtoseconds
+        compressibility_per_bar : float
+            Compressibility of the system per bar (1/bar)
+        pressure_bar : float
+            Pressure (bar)
         print_interval : int
             Interval for printing status
+        write_interval : int
+            Interval for writing trajectory frames
         traj_file : str
             Output trajectory file
         print_status : bool
@@ -285,16 +300,19 @@ class MoltenSaltSimulator:
             timestep=timestep_fs * units.fs,
             temperature_K=T,
             taut=taut_fs * units.fs,
-            pressure_au=1.01325 * units.bar,
+            pressure_au=pressure_bar * units.bar,
             taup=taup_fs * units.fs,
-            compressibility_au=4.0e-5 / units.bar,
+            compressibility_au=compressibility_per_bar / units.bar,
             logfile="npt_equili.log",
         )
 
         trajectory_npt = Trajectory(traj_file, "w", atoms)
+        dyn.attach(trajectory_npt.write, interval=write_interval)
+        # Write the simulation time to the info dict of the atoms objects whenever we save a frame
         dyn.attach(
-            trajectory_npt.write, interval=10
-        )  # TODO: As only every tenth frame is recorded, we only record every 10 fs => Check if Max's simulations were 200 ps or 2000 ps?
+            lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
+            interval=write_interval,
+        )
 
         if print_status:
 
@@ -320,7 +338,10 @@ class MoltenSaltSimulator:
         atoms,
         T,
         steps=1000,
+        timestep_fs=1.0,
+        tdamp_fs=1000.0,
         print_interval=100,
+        write_interval=10,
         traj_file="nvt_simulation.traj",
         print_status=True,
     ):
@@ -335,8 +356,14 @@ class MoltenSaltSimulator:
             Temperature (K)
         steps : int
             Number of MD steps
+        timestep_fs : float
+            Time step dt for the simulation in femtoseconds
+        tdamp_fs : float
+            Characteristic time scale for barostat in femtoseconds (typically 1000*timestep_fs)
         print_interval : int
             Interval for printing status
+        write_interval : int
+            Interval for writing trajectory frames
         traj_file : str
             Output trajectory file
         print_status : bool
@@ -350,14 +377,18 @@ class MoltenSaltSimulator:
 
         dyn = NoseHooverChainNVT(
             atoms,
-            timestep=1.0 * units.fs,
+            timestep=timestep_fs * units.fs,
             temperature_K=T,
-            tdamp=100 * units.fs,
+            tdamp=tdamp_fs * units.fs,
             logfile="nvt_run.log",
         )
 
         trajectory_nvt = Trajectory(traj_file, "w", atoms)
-        dyn.attach(trajectory_nvt.write, interval=10)
+        dyn.attach(trajectory_nvt.write, interval=write_interval)
+        dyn.attach(
+            lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
+            interval=write_interval,
+        )
 
         if print_status:
 
@@ -383,8 +414,10 @@ if __name__ == "__main__":
     sim = MoltenSaltSimulator(
         model_name="GRACE", model_parameters={"model_size": "small", "layer": 1}
     )
-    n_steps = 100  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps, but for testing it can be lower
-    n_steps_output = 10
+    n_steps = 10  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps, but for testing it can be lower
+    n_steps_output = 2
+    write_interval = 2
+    timestep_fs = 10.0
     # Define salts to simulate like:   "salt_name": ([anions], [cations], amount_of_anions, amount_of_cations)
     salts = {
         "NaCl": (["Cl"], ["Na"], [150], [150]),
@@ -407,7 +440,7 @@ if __name__ == "__main__":
 
         # Create folders to store the trajectories
         npt_dir, nvt_dir = sim.create_simulation_folder(
-            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_test")
+            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_super_short")
         )
 
         # Pair each temperature with its corresponding density guess
@@ -424,14 +457,18 @@ if __name__ == "__main__":
                 T,
                 steps=n_steps,
                 print_interval=n_steps_output,
+                write_interval=write_interval,
                 traj_file=traj_file_npt,
                 print_status=True,
+                timestep_fs=timestep_fs,
             )
             sim.run_nvt_simulation(
                 atoms,
                 T,
                 steps=n_steps,
                 print_interval=n_steps_output,
+                timestep_fs=timestep_fs,
+                write_interval=write_interval,
                 traj_file=traj_file_nvt,
                 print_status=True,
             )
