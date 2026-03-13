@@ -29,6 +29,7 @@ module load 2025
 
 # Activate Python environment
 source ~/PythonVenvs/MSPrediction/bin/activate
+pip install -e .  # Make sure the latest version of the moltensaltcalc package is installed
 
 # Show GPU info
 nvidia-smi
