@@ -1,10 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=gpu_a100
+#SBATCH --partition=gpu_h100
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=0:05:00
+#SBATCH --mem=12G
+#SBATCH --time=2:00:00
 
 # $1 = Python script
 # $2 = Job name (optional, default: M_NaF_DI)
@@ -15,8 +16,9 @@ SCRIPT_NAME=$(basename "$1" .py)
 
 # Set dynamic output and error files using job name and script name
 #SBATCH --job-name=$JOB_NAME
-#SBATCH --output=logs/${JOB_NAME}_${SCRIPT_NAME}_%j.out
-#SBATCH --error=logs/${JOB_NAME}_${SCRIPT_NAME}_%j.err
+#SBATCH --output=~/logs/${JOB_NAME}_${SCRIPT_NAME}_%j.out
+#SBATCH --error=~/logs/${JOB_NAME}_${SCRIPT_NAME}_%j.err
+#SBATCH --chdir=~/MoltenSaltCalc
 
 # Stop on first error
 set -e
@@ -32,4 +34,4 @@ source ~/PythonVenvs/MSPrediction/bin/activate
 nvidia-smi
 
 # Run Python script with all arguments
-python "$@"
+python -u "$@"
