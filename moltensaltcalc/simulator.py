@@ -218,8 +218,10 @@ class MoltenSaltSimulator:
 
             # TODO: Remove these lines, just for testing
             write("scaled_str.png", atoms)
-            write("scaled_an.png", atoms[::2])
-            write("scaled_cat.png", atoms[1::2])
+            write("scaled_an.png", atoms[[atom.symbol in salt_anion for atom in atoms]])
+            write(
+                "scaled_cat.png", atoms[[atom.symbol in salt_cation for atom in atoms]]
+            )
             # Calculate the initial density
             density_guess_calc = (
                 atoms.get_masses().sum()
