@@ -8,16 +8,10 @@
 #SBATCH --time=2:00:00
 
 # $1 = Python script
-# $2 = Job name (optional, default: M_NaF_DI)
-JOB_NAME=${2:-ms_prediction}
-
-# Get script base name without extension
-SCRIPT_NAME=$(basename "$1" .py)
 
 # Set dynamic output and error files using job name and script name
-#SBATCH --job-name=$JOB_NAME
-#SBATCH --output=~/logs/${JOB_NAME}_${SCRIPT_NAME}_%j.out
-#SBATCH --error=~/logs/${JOB_NAME}_${SCRIPT_NAME}_%j.err
+#SBATCH --output=~/logs/logs/%x_%j.out
+#SBATCH --error=~/logs/%x_%j.err
 #SBATCH --chdir=~/MoltenSaltCalc
 
 # Stop on first error
