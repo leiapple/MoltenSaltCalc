@@ -246,6 +246,9 @@ class MoltenSaltSimulator:
         atoms,
         T,
         steps=1000,
+        timestep_fs=1.0,
+        taut_fs=100.0,
+        taup_fs=1000.0,
         print_interval=100,
         traj_file="npt_simulation.traj",
         print_status=True,
@@ -277,11 +280,11 @@ class MoltenSaltSimulator:
 
         dyn = NPTBerendsen(
             atoms,
-            timestep=1.0 * units.fs,
+            timestep=timestep_fs * units.fs,
             temperature_K=T,
-            taut=100 * units.fs,
+            taut=taut_fs * units.fs,
             pressure_au=1.01325 * units.bar,
-            taup=1000 * units.fs,
+            taup=taup_fs * units.fs,
             compressibility_au=4.0e-5 / units.bar,
             logfile="npt_equili.log",
         )
