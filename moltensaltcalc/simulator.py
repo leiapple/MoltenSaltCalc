@@ -110,6 +110,7 @@ class MoltenSaltSimulator:
         cation_Natoms,
         density_guess,
         lattice="random",
+        random_removal=True,
     ):
         """
         Build a molten salt system with random or rocksalt initial positions.
@@ -128,6 +129,8 @@ class MoltenSaltSimulator:
             Initial density guess (g/cm³)
         lattice : str
             Initial lattice type ("random" or "rocksalt")
+        random_removal : bool
+            If True and lattice is "rocksalt", randomly remove excess atoms to match the desired composition. If False, simply take the first N atoms from the generated lattice.
 
         Returns:
         --------
@@ -194,21 +197,27 @@ class MoltenSaltSimulator:
             atoms = atoms.repeat((cells_per_side, cells_per_side, cells_per_side))
             # Randomly remove excess positions
             if len(atoms) > len(symbols):
-                num_positions_to_remove = len(atoms) - len(symbols)
-                cat_indices_to_remove = np.random.choice(
-                    np.arange(0, len(atoms), 2),
-                    size=num_positions_to_remove // 2,
-                    replace=False,
-                )
-                an_indices_to_remove = np.random.choice(
-                    np.arange(1, len(atoms), 2),
-                    size=num_positions_to_remove // 2,
-                    replace=False,
-                )
-                indices_to_remove = np.sort(
-                    np.concatenate((cat_indices_to_remove, an_indices_to_remove))
-                )
-                atoms = atoms[np.setdiff1d(np.arange(len(atoms)), indices_to_remove)]
+                if random_removal:
+                    num_positions_to_remove = len(atoms) - len(symbols)
+                    cat_indices_to_remove = np.random.choice(
+                        np.arange(0, len(atoms), 2),
+                        size=num_positions_to_remove // 2,
+                        replace=False,
+                    )
+                    an_indices_to_remove = np.random.choice(
+                        np.arange(1, len(atoms), 2),
+                        size=num_positions_to_remove // 2,
+                        replace=False,
+                    )
+                    indices_to_remove = np.sort(
+                        np.concatenate((cat_indices_to_remove, an_indices_to_remove))
+                    )
+                    atoms = atoms[
+                        np.setdiff1d(np.arange(len(atoms)), indices_to_remove)
+                    ]
+                else:
+                    atoms = atoms[: len(symbols)]
+
             # Populate with the correct chemical symbols
             atoms.set_chemical_symbols(symbols)
 
