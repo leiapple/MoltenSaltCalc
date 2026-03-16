@@ -13,7 +13,7 @@ np.random.seed(42)  # For reproducibility of initial random placements
 # ========================================================================
 
 # Setup the MS simulator class with the desired model and parameters
-identifier = "initial_rocksalt_taut_500_fs_taup_5000_fs"
+identifier = "initial_rocksalt_taut_500_fs_taup_2000_fs"
 n_steps = 200000  # 1 step is 1 fs, so to get the 200 ps, we need 200000 steps
 print_interval = 1000
 # Define salts to simulate like:   "salt_name": ([anions], [cations], amount_of_anions, amount_of_cations)
