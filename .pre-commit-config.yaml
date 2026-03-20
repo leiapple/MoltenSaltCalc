@@ -13,6 +13,7 @@ repos:
   rev: 26.3.0
   hooks:
     - id: black
+    - id: black-jupyter
 
 - repo: https://github.com/pycqa/isort
   rev: 8.0.1

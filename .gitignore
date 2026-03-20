@@ -5,6 +5,7 @@ Molten Salt Simulator.ipynb
 test_sim/
 simulation_results/
 plots/
+.vscode/
 
 # ==========================================================================================
 #   Template from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
