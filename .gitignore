@@ -221,9 +221,7 @@ __marimo__/
 
 
 # Space for custom gitignore rules
-# TODO: Take me out again
-Molten Salt Simulator.ipynb
-# Directory to store trajectory data for tests
+
 test_sim/
 simulation_results/
 plots/
