@@ -230,3 +230,4 @@ plots/
 .vscode/
 dev_testing/
 !demo/demo_simulation_results/*.log
+*.model
