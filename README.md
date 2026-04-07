@@ -27,7 +27,7 @@ uv venv --python 3.12 # optionally add a name (do not generate the venv in on a 
 # If uv is not installed, it can be installed with: pip install uv or brev install uv, etc.
 .venv/Scripts/activate # for windows (ensure script execution is allowed for remote signed scripts, in case if fails run: "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser")
 . .venv/bin/activate # for linux/mac
-pip install -e . "[grace]" # Depending on the MLIP you'd like to use, choose from "[grace]", "[fairchem]", "[mace]" (only one per venv, as they have conflicting dependencies)
+pip install -e . ".[grace]" # Depending on the MLIP you'd like to use, choose from ".[grace]", ".[fairchem]", ".[mace]" (only one per venv, as they have conflicting dependencies)
 ```
 
 ## Usage

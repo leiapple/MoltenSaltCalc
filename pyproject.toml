@@ -32,9 +32,9 @@ classifiers = [
 
 # Core dependencies
 dependencies = [
-    "numpy>=2.4",
-    "ase>=3.27",
-    "scipy>=1.17",
+    "numpy>=2.0",
+    "ase>=3.0",
+    "scipy>=1.0",
 ]
 
 # Optional dependencies (for MLIPs)
