@@ -1,6 +1,17 @@
+<h4 align="center">
+
+<!-- TODO Add PIP? -->
+<!-- ![PyPI - Version](https://img.shields.io/pypi/v/fairchem-core) -->
+![Static Badge](https://img.shields.io/badge/python-3.12%2B-blue)
+![Coverage](https://img.shields.io/badge/coverage-91%25-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
+<!-- TODO: Add DOI? -->
+
+</h4>
+
 # MoltenSaltCalc
 
-A Python package for simulating and analyzing molten salt properties using machine learning interatomic potentials (MLIPs) for the energy and force predictions in molecular dynamics (MD) simulations from atomic simulation environments (ASE).
+A Python package for running and analyzing molecular dynamics (MD) simulations of molten salts using machine-learned interatomic potentials (MLIPs) within the Atomic Simulation Environment (ASE).
 
 ## Authors
 
@@ -8,31 +19,85 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 ## Features
 
-- Build Systems: Construct molten salt systems with customizable compositions
-- MLP Integration: Support for FAIRCHEM, MACE, and GRACE MLPs
+- System Construction: Construct molten salt systems with customizable compositions in ASE
+- MLIP Integration: Support for FAIRCHEM, MACE, and GRACE MLIPs
 - Molecular Dynamics: Run NPT (constant pressure-temperature) and NVT (constant volume-temperature) simulations
-- Property Analysis: Compute density, thermal expansion, heat capacity, diffusion coefficients, viscosity, and radial distribution functions
-- Visualization: Built-in plotting for analysis of the results
+- Property Analysis: Compute thermodynamic and transport properties such as density, diffusion coefficients, viscosity, and heat capacity
 
 ## Installation
 
-### Basic Installation
+Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
-This only needs to be done once and installs the package and its dependencies in virtual environment.
+### GRACE
 
 ```bash
 git clone https://github.com/leiapple/moltensaltcalc.git
 cd moltensaltcalc
-uv venv --python 3.12 # optionally add a name (do not generate the venv in on a shared-drive (e.g. onedrive), it will cause problems later)
-# If uv is not installed, it can be installed with: pip install uv or brev install uv, etc.
-.venv/Scripts/activate # for windows (ensure script execution is allowed for remote signed scripts, in case if fails run: "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser")
-. .venv/bin/activate # for linux/mac
-pip install -e . ".[grace]" # Depending on the MLIP you'd like to use, choose from ".[grace]", ".[fairchem]", ".[mace]" (only one per venv, as they have conflicting dependencies)
+
+python -m venv .venv
+source .venv/bin/activate   # Linux/macOS
+# or
+.venv\Scripts\activate      # Windows
+
+pip install -e ".[grace]"
+```
+
+### FAIRCHEM
+
+```bash
+pip install -e ".[fairchem]"
+```
+
+### MACE
+
+```bash
+pip install -e ".[mace]"
+```
+
+### Development
+
+```bash
+pip install -e ".[dev,grace]"  # Installs the selected MLIP backend and all development dependencies (pytest, etc.)
 ```
 
 ## Usage
 
-See the [demo notebooks](./demo/) for usage examples of the simulator and analyzer classes.
+### Quick start
+
+```python
+from moltensaltcalc import MoltenSaltSimulator, MoltenSaltAnalyzer
+
+sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"})
+atoms = sim.build_system(
+    salt_anion=["Cl", "F"],
+    salt_cation=["Na"],
+    anion_Natoms=[7, 3],  # 7 Cl atoms and 3 F atoms
+    cation_Natoms=[10],  # 10 Na atoms
+    density_guess=2.0,  # g/cm³
+)
+sim.run_npt_simulation(
+    atoms,
+    T=1100,  # K
+    steps=1000,  # MD steps
+    timestep_fs=1.0,  # fs
+    traj_file="npt_simulation.traj",  # Trajectory file
+)
+
+analyzer = MoltenSaltAnalyzer(
+    traj_files_npt=["npt_simulation.traj"],  # Trajectory file(s)
+    temperatures=[1100],  # K
+)
+density = analyzer.compute_eq_density()  # g/cm³
+C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.1)  # J/g/K
+```
+
+### Demo
+
+Run the example notebooks in the `demo/` directory to explore:
+
+- system setup
+- running MD simulations
+- post-processing and analysis
 
 ## Project Structure
 ```
@@ -59,7 +124,7 @@ moltensaltcalc/
 │   └── test_analyzer.py
 ├── setup.py                # Setup configuration
 ├── pyproject.toml          # Build configuration
-├── requirements_*.txt      # Exact dependency specifications that were tested
+├── requirements_*.txt      # These files contain exact dependency snapshots used during testing for each MLIP backend.
 ├── LICENSE                 # License file
 └── README.md               # This file
 ```
@@ -70,11 +135,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-For questions, issues, or feature requests, please open an issue on the [GitHub repository](https://github.com/leiapple/MoltenSaltCalc).
+For questions, bug reports, or feature requests, please open an issue on GitHub.
 
 ## Reference
 
-If you use this package in your research, please cite the following paper: [TODO Link](https://todo.com)
+If you use this package in your research, please cite the associated publication: [TODO Link](https://todo.com)
 
 TODO Add bibtex
 
