@@ -405,7 +405,7 @@ class MoltenSaltAnalyzer:
 
 
 # Example usage
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     print(
         "\nMinimalistic examples of the MoltenSaltAnalyzer class for a very short simulation of molten NaCl. The results are printed to the console:\n"
     )

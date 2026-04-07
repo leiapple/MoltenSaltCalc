@@ -232,13 +232,13 @@ class MoltenSaltSimulator:
             if len(atoms) > len(symbols):
                 if random_removal:
                     # Randomly select the respective amount of anion and cation positions to remove
-                    num_an_positions_to_remove = len(atoms) / 2 - len(anions)
+                    num_an_positions_to_remove = int(len(atoms) / 2 - len(anions))
                     cat_indices_to_remove = np.random.choice(
                         np.arange(0, len(atoms), 2),
                         size=num_an_positions_to_remove,
                         replace=False,
                     )
-                    num_cat_positions_to_remove = len(atoms) / 2 - len(cations)
+                    num_cat_positions_to_remove = int(len(atoms) / 2 - len(cations))
                     an_indices_to_remove = np.random.choice(
                         np.arange(1, len(atoms), 2),
                         size=num_cat_positions_to_remove,
@@ -288,7 +288,7 @@ class MoltenSaltSimulator:
         write_interval: int = 10,
         traj_file: str = "npt_simulation.traj",
         print_status: bool = True,
-        logfile: str = "npt_equili.log",
+        logfile: str = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
         Args:
@@ -304,7 +304,7 @@ class MoltenSaltSimulator:
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
             traj_file (str, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_equili.log".
+            logfile (str, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_run.log".
 
         Returns:
             Atoms: ASE atoms object of the equilibrated system
@@ -410,7 +410,7 @@ class MoltenSaltSimulator:
 
 
 # Example usage
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     np.random.seed(42)  # Ensure reproducibility (initial random placements)
     # Setup the MS simulator class with the desired model and parameters
     sim = MoltenSaltSimulator(

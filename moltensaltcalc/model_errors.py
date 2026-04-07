@@ -3,18 +3,20 @@ from moltensaltcalc.registry import MODEL_METADATA
 
 def format_unknown_model_error(model_name: str, discoverable_models: list[str]) -> str:
     """Returns a formatted error message for an unknown model.
-    And
-        Args:
-            model_name (str): Name of the model (input) that was not found.
-            discoverable_models (list[str]): List of available model names.
 
-        Returns:
-            str: Formatted error message.
+    Args:
+        model_name (str): Name of the model (input) that was not found.
+        discoverable_models (list[str]): List of available model names.
+
+    Returns:
+        str: Formatted error message.
     """
+    if discoverable_models:
+        models_str = "\n- '" + "'\n- '".join(discoverable_models) + "'"
+    else:
+        models_str = "\n  (none found)"
 
-    return f"Unknown model '{model_name}'.\n\n" "\nAvailable models:\n- " + "\n- ".join(
-        discoverable_models
-    )
+    return f"Unknown model '{model_name}'.\n\n\nAvailable models:{models_str}"
 
 
 def format_model_error(model_name: str, params: dict, error: Exception) -> str:
