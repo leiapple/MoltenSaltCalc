@@ -1,13 +1,4 @@
-# Space for custom gitignore rules
-# TODO: Take me out again
-Molten Salt Simulator.ipynb
-# Directory to store trajectory data for tests
-test_sim/
-simulation_results/
-plots/
-.vscode/
-
-# ==========================================================================================
+ ==========================================================================================
 #   Template from https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # ==========================================================================================
 
@@ -227,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Space for custom gitignore rules
+
+test_sim/
+simulation_results/
+plots/
+.vscode/
+dev_testing/
+!demo/demo_simulation_results/*.log
+*.model

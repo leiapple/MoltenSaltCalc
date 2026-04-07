@@ -4,14 +4,67 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltensaltcalc"
-version = "0.0.1"
-authors = [
-    {name = "Max van Brenk", email = "lei.apple.141592@gmail.com"},
-]
-description = "Molten salt simulation package"
+version = "0.1.0"
+description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
+authors = [
+    { name = "Daniel Isler", email = "isler@differ.nl"},
+    { name = "Lei Zhang" },
+    { name = "Max van Brenk" },
+    { name = "Suleyman Er", email = "s.er@differ.nl"},
+]
+
+license = { text = "MIT" }
+
+keywords = ["molecular dynamics", "ML potentials", "ASE", "materials science"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Materials Science",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+# Core dependencies
+dependencies = [
+    "numpy>=2.4",
+    "ase>=3.27",
+    "scipy>=1.17",
+]
+
+# Optional dependencies (for MLIPs)
+[project.optional-dependencies]
+grace = ["tensorpotential"]
+fairchem = ["fairchem-core"]
+mace = ["mace-torch"]
+
+dev = [
+    "pytest",
+    "pre-commit",
+    "black",
+    "isort",
+]
+
+# Discoverability
+[project.urls]
+Repository = "https://github.com/TODO"
+
+# Package discovery
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["moltensaltcalc*"]
+
+# Pytest config
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "serial",
+]

@@ -1,3 +1,4 @@
+import importlib
 import os
 from typing import Tuple
 
@@ -11,101 +12,107 @@ from ase.md.nptberendsen import NPTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from scipy.spatial.distance import cdist
 
+from moltensaltcalc.model_discovery import discover_models
+from moltensaltcalc.model_errors import (
+    format_model_error,
+    format_unknown_model_error,
+)
+from moltensaltcalc.registry import MODEL_METADATA, MODEL_REGISTRY
+
 
 class MoltenSaltSimulator:
     """Class for building molten salt systems and running molecular dynamics simulations supported by energy estimates from uMLIPs."""
 
     def __init__(
         self,
-        model_name: str = "GRACE",
-        model_parameters: dict | None = None,
+        model_name: str,
+        model_parameters: dict,
         device: str = "cuda",
     ):
         """Initialize the simulator with a specific ML potential.
 
         Args:
-            model_name (str, optional): Which MLIP to use, select from "FAIRCHEM", "MACE" and "GRACE". Defaults to "GRACE".
-            model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None which means {"model_size": "medium", "layer": 1}.
+            model_name (str): Which MLIP to use.
+            model_parameters (dict): Parameters for the MLIP.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
         """
-        if model_parameters is None:
-            model_parameters = {"model_size": "medium", "layer": 1}
         self.device = device
+        model_name = model_name.lower()
         self.calc = None
         self._set_calculator(model_name, model_parameters)
 
-    def _set_calculator(self, model_name: str, model_parameters: dict | None = None):
-        """Sets the calculator based on the chosen ML potential.
+    def _lazy_import_model(self, model_name: str):
+        """Imports the model module, triggering its registration into MODEL_REGISTRY.
 
         Args:
-            model_name (str): Which MLIP to use, select from "FAIRCHEM", "MACE" and "GRACE". Defaults to "GRACE".
-            model_parameters (dict | Nones, optional): _description_. Defaults to None.
+            model_name (str): Input model name.
 
         Raises:
-            ValueError: In case no match was found for the model name and parameters.
+            ImportError: If the model name is not integrated in the package.
+            ImportError: If the model could not be imported.
         """
-        if model_parameters is None:
-            model_parameters = {}
+        try:
+            importlib.import_module(f"moltensaltcalc.models.{model_name}")
+        except ModuleNotFoundError as e:
+            raise ImportError(
+                f"Model module 'moltensaltcalc.models.{model_name}' not found.\n"
+            ) from e
 
-        # Raises an exception at the end of the function if no match was found
-        calculator_unavailable = False
+        except ImportError as e:
+            raise ImportError(
+                f"Model '{model_name}' could not be imported.\n"
+                f"This may be due to missing dependencies.\n"
+                f"Original error: {repr(e)}"
+            ) from e
 
-        if model_name == "fairchem" or model_name == "FAIRCHEM":
-            from fairchem.core import FAIRChemCalculator, pretrained_mlip
+    def _set_calculator(self, model_name: str, model_parameters: dict):
+        """Sets the uMLIP calculator for the energy and forces prediction.
 
-            if model_parameters.get("model_size") == "small":
-                predictor = pretrained_mlip.get_predict_unit(
-                    "uma-s-1", device=self.device
-                )
-                self.calc = FAIRChemCalculator(
-                    predictor, task_name=model_parameters.get("model_task")
-                )
-            elif model_parameters.get("model_size") == "medium":
-                predictor = pretrained_mlip.get_predict_unit(
-                    "uma-m-1p1", device=self.device
-                )
-                self.calc = FAIRChemCalculator(
-                    predictor, task_name=model_parameters.get("model_task")
-                )
-            else:
-                calculator_unavailable = True
+        Args:
+            model_name (str): Name of the model.
+            model_parameters (dict): Parameters to be passed to the model.
 
-        elif model_name == "MACE" or model_name == "mace":
-            from mace.calculators import mace_mp
+        Raises:
+            ValueError: If the model name provided is not available.
+            ValueError: If the calculator could not be setup (e.g. unavailable GPU).
+            RuntimeError: If the calculator doesn't contain the model (e.g. wrong parameters).
+        """
+        model_name = model_name.lower()
+        model_parameters = dict(model_parameters or {})
 
-            if model_parameters.get("model_type") == "mace-mh-1":
-                self.calc = mace_mp(
-                    model="mace-mh-1.model", default_dtype="float64", device=self.device
-                )
-            else:
-                calculator_unavailable = True
-
-        elif model_name == "GRACE" or model_name == "grace":
-            from tensorpotential.calculator.foundation_models import (
-                GRACEModels,
-                grace_fm,
-            )
-
-            if (
-                model_parameters.get("model_size") == "small"
-                and model_parameters.get("layer") == 1
-            ):
-                self.calc = grace_fm(GRACEModels.GRACE_1L_OMAT)
-            elif (
-                model_parameters.get("model_size") == "medium"
-                and model_parameters.get("layer") == 1
-            ):
-                self.calc = grace_fm(GRACEModels.GRACE_1L_OMAT_medium_base)
-            else:
-                calculator_unavailable = True
-
-        else:
-            raise ValueError(f"Model '{model_name}' has no available calculators")
-
-        if calculator_unavailable:
+        discoverable_models = discover_models()
+        try:
+            self._lazy_import_model(model_name)
+        except ImportError as e:
             raise ValueError(
-                f"The model {model_name} has no calculator with the parameters: {model_parameters}"
+                format_unknown_model_error(model_name, discoverable_models)
+            ) from e
+
+        # Registry check (system integrity)
+        if model_name not in MODEL_REGISTRY:
+            raise RuntimeError(
+                f"Model '{model_name}' was imported but did not register itself."
             )
+
+        # Instantiate
+        try:
+            calc = MODEL_REGISTRY[model_name](model_parameters, device=self.device)
+        except ImportError as e:
+            # Dependency issue
+            raise RuntimeError(
+                f"Missing dependency for model '{model_name}'.\n\n"
+                f"{e}\n\n"
+                f"=> Please install the required package."
+            ) from e
+
+        except Exception as e:
+            # Real model failure
+            raise ValueError(format_model_error(model_name, model_parameters, e)) from e
+
+        if calc is None:
+            raise RuntimeError(f"Builder for '{model_name}' returned None")
+
+        self.calc = calc
 
     def create_simulation_folder(
         self, base_name: str = "simulation"
@@ -225,13 +232,13 @@ class MoltenSaltSimulator:
             if len(atoms) > len(symbols):
                 if random_removal:
                     # Randomly select the respective amount of anion and cation positions to remove
-                    num_an_positions_to_remove = len(atoms) / 2 - len(anions)
+                    num_an_positions_to_remove = int(len(atoms) / 2 - len(anions))
                     cat_indices_to_remove = np.random.choice(
                         np.arange(0, len(atoms), 2),
                         size=num_an_positions_to_remove,
                         replace=False,
                     )
-                    num_cat_positions_to_remove = len(atoms) / 2 - len(cations)
+                    num_cat_positions_to_remove = int(len(atoms) / 2 - len(cations))
                     an_indices_to_remove = np.random.choice(
                         np.arange(1, len(atoms), 2),
                         size=num_cat_positions_to_remove,
@@ -281,7 +288,7 @@ class MoltenSaltSimulator:
         write_interval: int = 10,
         traj_file: str = "npt_simulation.traj",
         print_status: bool = True,
-        logfile: str = "npt_equili.log",
+        logfile: str = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
         Args:
@@ -297,7 +304,7 @@ class MoltenSaltSimulator:
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
             traj_file (str, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_equili.log".
+            logfile (str, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_run.log".
 
         Returns:
             Atoms: ASE atoms object of the equilibrated system
@@ -403,11 +410,17 @@ class MoltenSaltSimulator:
 
 
 # Example usage
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     np.random.seed(42)  # Ensure reproducibility (initial random placements)
     # Setup the MS simulator class with the desired model and parameters
     sim = MoltenSaltSimulator(
-        model_name="GRACE", model_parameters={"model_size": "small", "layer": 1}
+        model_name="grace",
+        device="cpu",
+        model_parameters={
+            "model_task": "OAM",
+            "model_size": "small",
+            "num_layers": 1,
+        },
     )
     n_steps = 10  # In practice this needs to be ~100'000 steps
     n_steps_output = 2
