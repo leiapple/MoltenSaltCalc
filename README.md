@@ -65,14 +65,18 @@ pip install -e ".[dev,grace]"  # Installs the selected MLIP backend and all deve
 ### Quick start
 
 ```python
+import numpy as np
+
 from moltensaltcalc import MoltenSaltSimulator, MoltenSaltAnalyzer
+
+np.random.seed(42)  # Ensure reproducibility (initial random placements)
 
 sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"})
 atoms = sim.build_system(
-    salt_anion=["Cl", "F"],
+    salt_anion=["F", "Cl"],
     salt_cation=["Na"],
-    anion_Natoms=[7, 3],  # 7 Cl atoms and 3 F atoms
-    cation_Natoms=[10],  # 10 Na atoms
+    anion_Natoms=[10, 5],  # 7 F atoms and 5 Cl atoms
+    cation_Natoms=[15],  # 15 Na atoms
     density_guess=2.0,  # g/cm³
 )
 sim.run_npt_simulation(
@@ -85,10 +89,10 @@ sim.run_npt_simulation(
 
 analyzer = MoltenSaltAnalyzer(
     traj_files_npt=["npt_simulation.traj"],  # Trajectory file(s)
-    temperatures=[1100],  # K
+    temperatures_npt=[1100],  # K
 )
-density = analyzer.compute_eq_density()  # g/cm³
-C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.1)  # J/g/K
+density = analyzer.compute_eq_density(T=1100)  # 1.31 g/cm³
+C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.2)  # 0.19 J/g/K
 ```
 
 ### Demo
