@@ -21,8 +21,6 @@ def register_model(name: str, metadata: dict | None = None) -> Callable:
     metadata = metadata or {}
 
     def decorator(fn):
-        if name in MODEL_REGISTRY:
-            raise ValueError(f"Model '{name}' already registered")
 
         MODEL_REGISTRY[name] = fn
         MODEL_METADATA[name] = metadata

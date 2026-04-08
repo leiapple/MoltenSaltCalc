@@ -28,7 +28,8 @@ def analyzer():
             BASE / "test_analyzer_trajectories" / "nvt_NaCl_1150K.traj",
             BASE / "test_analyzer_trajectories" / "nvt_NaCl_1200K.traj",
         ],
-        temperatures=[1100, 1150, 1200],
+        temperatures_npt=[1100, 1150, 1200],
+        temperatures_nvt=[1100, 1150, 1200],
     )
 
 
@@ -47,11 +48,24 @@ def test_select_trajectory_preference(analyzer):
 
 def test_select_trajectory_only_nvt():
     analyzer = msc.MoltenSaltAnalyzer(
+        traj_files_npt=[BASE / "test_analyzer_trajectories" / "npt_NaCl_1200K.traj"],
         traj_files_nvt=[BASE / "test_analyzer_trajectories" / "nvt_NaCl_1100K.traj"],
-        temperatures=[1100],
+        temperatures_npt=[1200],
+        temperatures_nvt=[1100],
     )
     traj, _ = analyzer._select_trajectory("npt", T=1100)
     assert traj is analyzer.trajs_nvt[0]
+
+
+def test_init_string_input():
+    analyzer = msc.MoltenSaltAnalyzer(
+        traj_files_npt=str(BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj"),
+        traj_files_nvt=str(BASE / "test_analyzer_trajectories" / "nvt_NaCl_1100K.traj"),
+        temperatures_npt=[1100],
+        temperatures_nvt=[1100],
+    )
+    assert len(analyzer.trajs_npt) == 1
+    assert len(analyzer.trajs_nvt) == 1
 
 
 def test_get_eq_times():
@@ -61,8 +75,25 @@ def test_get_eq_times():
     assert np.array_equal(idx, np.array([2, 3, 4]))
 
 
+def test_trajectory_without_time_fs():
+    # Prepare the traj
+    with pytest.warns(UserWarning) as w:
+        analyzer = msc.MoltenSaltAnalyzer(
+            traj_files_npt=[
+                BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K_no_time_fs.traj"
+            ],
+            temperatures_npt=[1100],
+        )
+    assert len(w) == 1
+    assert "WARNING: No time_fs found in" in str(w[0].message)
+    assert np.allclose(analyzer.timestep_fs, np.diff(analyzer.times_fs_npt))
+    analyzer.recompute_times(timestep_fs=5.0)
+    assert np.isclose(analyzer.timestep_fs, 5.0)
+    assert np.allclose(analyzer.timestep_fs, np.diff(analyzer.times_fs_npt))
+
+
 def test_compute_density_vs_time(analyzer):
-    densities, times = analyzer.compute_density_vs_time()
+    densities, times = analyzer.compute_density_vs_time(1100)
     assert isinstance(densities, np.ndarray), "Densities is not a numpy array"
     assert isinstance(times, np.ndarray), "Times is not a numpy array"
     assert len(densities) == len(times), "Length of densities and times do not match"
@@ -85,7 +116,7 @@ def test_compute_density_vs_time(analyzer):
 
 
 def test_compute_eq_density(analyzer):
-    eq_density = analyzer.compute_eq_density(eq_fraction=EQ_FRAC)
+    eq_density = analyzer.compute_eq_density(1100, eq_fraction=EQ_FRAC)
     assert isinstance(eq_density, float), "Equilibrium density is not a float"
     eq_density_ref = 1.52253
     assert np.isclose(
@@ -178,7 +209,7 @@ def test_compute_rdf(analyzer):
 
 
 def test_rdf_auto_pairs(analyzer):
-    rdf = analyzer.compute_rdf(max_num_frames=2, nbins=2, rmax=2.0)
+    rdf = analyzer.compute_rdf(T=1100, max_num_frames=2, nbins=2, rmax=2.0)
     assert isinstance(rdf, dict)
     rdf_keys, rdf_keys_ref = set(rdf.keys()), set([(11, 11), (11, 17), (17, 17)])
     assert (
@@ -225,7 +256,7 @@ def test_init_missing_traj_file():
     with pytest.raises(FileNotFoundError) as e:
         msc.MoltenSaltAnalyzer(
             traj_files_npt=["nonexistent.traj"],
-            temperatures=[1100],
+            temperatures_npt=[1100],
         )
     assert f"Trajectory file nonexistent.traj not found" in str(e.value)
 
@@ -233,22 +264,26 @@ def test_init_missing_traj_file():
 def test_invalid_temperature(analyzer):
     with pytest.raises(ValueError) as e:
         analyzer.compute_diffusion_coefficient(T=1000)
-    assert "not found in the list of temperatures" in str(e.value)
+    assert "not found in any trajectories" in str(e.value)
 
 
 def test_init_mismatched_lengths():
     with pytest.raises(ValueError) as e:
         msc.MoltenSaltAnalyzer(
             traj_files_npt=["a.traj", "b.traj"],
-            temperatures=[1100],
+            temperatures_npt=[1100],
         )
-    assert "Number of trajectory files and temperatures must be equal" in str(e.value)
+    assert "Number of NPT trajectory files and temperatures_npt must match" in str(
+        e.value
+    )
 
 
 def test_init_missing_temperatures():
     with pytest.raises(ValueError) as e:
         msc.MoltenSaltAnalyzer(traj_files_npt=["a.traj"])
-    assert "Number of trajectory files and temperatures must be equal" in str(e.value)
+    assert "Number of NPT trajectory files and temperatures_npt must match" in str(
+        e.value
+    )
 
 
 def test_select_no_trajectory():
@@ -258,25 +293,30 @@ def test_select_no_trajectory():
     assert "No trajectory files provided" in str(e.value)
 
 
-def test_init_string_input():
-    analyzer = msc.MoltenSaltAnalyzer(
-        traj_files_npt=str(BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj"),
-        traj_files_nvt=str(BASE / "test_analyzer_trajectories" / "nvt_NaCl_1100K.traj"),
-        temperatures=[1100],
-    )
-    assert len(analyzer.trajs_npt) == 1
-    assert len(analyzer.trajs_nvt) == 1
-
-
 def test_eq_density_invalid_fraction(analyzer):
     with pytest.raises(ValueError) as e:
-        analyzer.compute_eq_density(eq_fraction=1.5)
+        analyzer.compute_eq_density(T=1100, eq_fraction=1.5)
     assert "eq_fraction must be between 0 and 1." in str(e.value)
+
+
+def test_invalid_thm_expansion(analyzer, monkeypatch):
+    monkeypatch.setattr(analyzer, "trajs_npt", analyzer.trajs_nvt[:1])
+    with pytest.raises(ValueError) as e:
+        analyzer.compute_thermal_expansion(eq_fraction=0.1)
+    assert "At least two NPT trajectory files are required" in str(e.value)
+    monkeypatch.setattr(analyzer, "temperatures_npt", None)
+    with pytest.raises(ValueError) as e:
+        analyzer.compute_thermal_expansion(eq_fraction=0.1)
+    assert "No NPT temperatures provided" in str(e.value)
+    monkeypatch.setattr(analyzer, "trajs_npt", None)
+    with pytest.raises(ValueError) as e:
+        analyzer.compute_thermal_expansion(eq_fraction=0.1)
+    assert "No NPT trajectory files provided" in str(e.value)
 
 
 def test_rdf_no_pairs(analyzer):
     with pytest.raises(ValueError) as e:
-        analyzer.compute_rdf(max_num_frames=2, nbins=2, rmax=2.0, pairs=[])
+        analyzer.compute_rdf(T=1100, max_num_frames=2, nbins=2, rmax=2.0, pairs=[])
     assert "No pairs specified" in str(e.value)
 
 
@@ -288,7 +328,7 @@ def test_viscosity_nonconstant_timestep():
             / "test_analyzer_trajectories"
             / "nvt_NaCl_1200K_nonconstant_timestep.traj",
         ],
-        temperatures=[1200],
+        temperatures_nvt=[1200],
     )
     with pytest.raises(ValueError) as e:
         analyzer.compute_viscosity(T=1200)

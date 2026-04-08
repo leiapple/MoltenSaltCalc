@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import Tuple
 
 import numpy as np
@@ -16,14 +17,18 @@ class MoltenSaltAnalyzer:
         self,
         traj_files_npt: list[str] | str | None = None,
         traj_files_nvt: list[str] | str | None = None,
-        temperatures: list[float] | None = None,
+        temperatures_npt: list[float] | None = None,
+        temperatures_nvt: list[float] | None = None,
+        timestep_fs: float = 10.0,
     ):
         """Initialize the analyzer with the trajectories and the always used properties
 
         Args:
             traj_files_npt (list, str, optional): Path to the NPT trajectory file(s). Defaults to None.
             traj_files_nvt (list, str, optional): Path to the NVT trajectory file(s). Defaults to None.
-            temperatures (list, optional): List of temperatures in K. Must be provided if multiple trajectory files are provided. Defaults to None.
+            temperatures_npt (list, optional): List of temperatures in K for the NPT trajectories. Defaults to None.
+            temperatures_nvt (list, optional): List of temperatures in K for the NVT trajectories. Defaults to None.
+            timestep_fs (float, optional): Constant timestep in fs. Only applies if time_fs is not found in the trajectory files. Defaults to 10.0.
 
         Raises:
             ValueError: If the number of trajectory files is not equal to the number of temperatures.
@@ -32,15 +37,19 @@ class MoltenSaltAnalyzer:
         Defines:
             self.trajs_npt (list): List of Trajectory objects for the NPT trajectories
             self.trajs_nvt (list): List of Trajectory objects for the NVT trajectories
-            self.times_fs_npt (np.ndarray): Array of times in fs for the NPT trajectories
-            self.times_fs_nvt (np.ndarray): Array of times in fs for the NVT trajectories
-            self.temperatures (list): List of temperatures in K
+            self.times_fs_npt (list[np.ndarray]): List of arrays of times in fs for each NPT trajectory
+            self.times_fs_nvt (list[np.ndarray]): List of arrays of times in fs for each NVT trajectory
+            self.temperatures_npt (list): List of temperatures in K for the NPT trajectories
+            self.temperatures_nvt (list): List of temperatures in K for the NVT trajectories
+            self.timestep_fs (float): Constant timestep in fs, only applies if time_fs is not found in the trajectory files.
         """
         self.trajs_npt = None
         self.trajs_nvt = None
         self.times_fs_npt = None
         self.times_fs_nvt = None
-        self.temperatures = temperatures
+        self.timestep_fs = timestep_fs
+        self.temperatures_npt = temperatures_npt
+        self.temperatures_nvt = temperatures_nvt
 
         if isinstance(traj_files_npt, str):
             traj_files_npt = [traj_files_npt]
@@ -48,9 +57,9 @@ class MoltenSaltAnalyzer:
             traj_files_nvt = [traj_files_nvt]
 
         if traj_files_npt is not None:
-            if temperatures is None or len(traj_files_npt) != len(temperatures):
+            if temperatures_npt is None or len(traj_files_npt) != len(temperatures_npt):
                 raise ValueError(
-                    f"Number of trajectory files and temperatures must be equal."
+                    f"Number of NPT trajectory files and temperatures_npt must match."
                 )
             self.trajs_npt, self.times_fs_npt = [], []
             for traj_file in traj_files_npt:
@@ -58,13 +67,19 @@ class MoltenSaltAnalyzer:
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
                 traj = Trajectory(traj_file)
                 self.trajs_npt.append(traj)
-                times = np.array([atoms.info["time_fs"] for atoms in traj])
+                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):
+                    times = np.array([atoms.info["time_fs"] for atoms in traj])
+                else:
+                    warnings.warn(
+                        f"WARNING: No time_fs found in {traj_file}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs)."
+                    )
+                    times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_npt.append(times)
 
         if traj_files_nvt is not None:
-            if temperatures is None or len(traj_files_nvt) != len(temperatures):
+            if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
                 raise ValueError(
-                    f"Number of trajectory files and temperatures must be equal."
+                    f"Number of trajectory files and temperatures_nvt must match."
                 )
             self.trajs_nvt, self.times_fs_nvt = [], []
             for traj_file in traj_files_nvt:
@@ -72,44 +87,73 @@ class MoltenSaltAnalyzer:
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
                 traj = Trajectory(traj_file)
                 self.trajs_nvt.append(traj)
-                times = np.array([atoms.info["time_fs"] for atoms in traj])
+                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):
+                    times = np.array([atoms.info["time_fs"] for atoms in traj])
+                else:
+                    warnings.warn(
+                        f"WARNING: 'time_fs' not found in {traj_file}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs)."
+                    )
+                    times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_nvt.append(times)
 
-    def _select_trajectory(
-        self, preferred_type: str, T: float | None = None
-    ) -> Tuple[Trajectory, np.ndarray]:
-        """Selects the trajectory based on the preferred type.
+    def recompute_times(self, timestep_fs: float):
+        """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
 
         Args:
-            preferred_type (str): Trajectory type to be used if both are available. Either "npt" or "nvt".
-            T (float, optional): Temperature in K. If provided, the trajectory with the matching temperature is selected. Defaults to None, which means the first trajectory is selected.
+            timestep_fs (float): Newly chosen timestep in fs.
+        """
+        self.timestep_fs = timestep_fs
+        if self.trajs_npt is not None:
+            self.times_fs_npt = [
+                np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_npt
+            ]
+
+        if self.trajs_nvt is not None:
+            self.times_fs_nvt = [
+                np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_nvt
+            ]
+
+    def _select_trajectory(
+        self, preferred_type: str, T: float
+    ) -> Tuple[Trajectory, np.ndarray]:
+        """Select trajectory for a given temperature.
+
+        Args:
+            preferred_type (str): Preferred ensemble to select if both are available.
+                Must be either "npt" or "nvt". If the preferred type is not available
+                for the requested temperature, the available trajectory is returned.
+            T (float): Temperature in K for which the trajectory should be selected.
 
         Raises:
-            ValueError: If no trajectory files are provided from the initializer.
-            ValueError: If the temperature is not in the list self.temperatures.
+            ValueError: If no trajectory files were provided during initialization.
+            ValueError: If preferred_type is not "npt" or "nvt".
+            ValueError: If the requested temperature is not available in any trajectory.
 
         Returns:
-            Tuple[Trajectory, np.ndarray]: Trajectory and simulation times in fs.
+            Tuple[Trajectory, np.ndarray]: The selected trajectory object and the corresponding simulation times in fs.
         """
         if self.trajs_npt is None and self.trajs_nvt is None:
             raise ValueError("No trajectory files provided.")
-        if T is not None and T not in self.temperatures:
-            raise ValueError(f"Temperature {T} not found in the list of temperatures.")
+        if preferred_type not in ["npt", "nvt"]:
+            raise ValueError("preferred_type must be either 'npt' or 'nvt'.")
 
-        # Select the trajectory with the matching temperature if provided, otherwise the first
-        traj_idx = 0 if T is None else self.temperatures.index(T)
+        candidates = {}
 
-        # Select the trajectory based on availability and preferred type
-        if self.trajs_npt is not None and (
-            self.trajs_nvt is None or preferred_type == "npt"
-        ):
-            traj = self.trajs_npt[traj_idx]
-            times = self.times_fs_npt[traj_idx]
-        else:
-            traj = self.trajs_nvt[traj_idx]
-            times = self.times_fs_nvt[traj_idx]
+        if self.temperatures_npt is not None and T in self.temperatures_npt:
+            idx = self.temperatures_npt.index(T)
+            candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])
 
-        return traj, times
+        if self.temperatures_nvt is not None and T in self.temperatures_nvt:
+            idx = self.temperatures_nvt.index(T)
+            candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])
+
+        if not candidates:
+            raise ValueError(f"Temperature {T} not found in any trajectories.")
+
+        if preferred_type in candidates:
+            return candidates[preferred_type]
+
+        return next(iter(candidates.values()))
 
     def _get_eq_times(self, eq_fraction: float, times_fs: np.ndarray) -> np.ndarray:
         """Gets the indices of the simulation times later than 1-eq_fraction of the total simulation time.
@@ -124,13 +168,11 @@ class MoltenSaltAnalyzer:
         eq_times = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
         return eq_times
 
-    def compute_density_vs_time(
-        self, T: float | None = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_density_vs_time(self, T: float) -> Tuple[np.ndarray, np.ndarray]:
         """Compute the density from the trajectory file. If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
-            T (float, optional): Temperature in K. If provided, the density is computed from the trajectory with the matching temperature. Defaults to None.
+            T (float): Temperature in K. The trajectory with the matching temperature is selected.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Densities in g/cm³ and times in fs
@@ -141,15 +183,13 @@ class MoltenSaltAnalyzer:
         densities = masses / volumes  # g/cm³
         return densities, times
 
-    def compute_eq_density(
-        self, eq_fraction: float = 0.1, T: float | None = None
-    ) -> float:
+    def compute_eq_density(self, T: float, eq_fraction: float = 0.1) -> float:
         """
         Compute the density after equilibration (last x time% of the trajectory). If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
+            T (float): Temperature in K. The trajectory with the matching temperature is selected.
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
-            T (float, optional): Temperature in K. If provided, the density is computed from the trajectory with the matching temperature. Defaults to None.
 
         Returns:
             float: Density in g/cm³
@@ -157,7 +197,6 @@ class MoltenSaltAnalyzer:
         if eq_fraction > 1.0 or eq_fraction < 0.0:
             raise ValueError("eq_fraction must be between 0 and 1.")
 
-        # Get the densities
         densities, times_fs = self.compute_density_vs_time(T)
         eq_times = self._get_eq_times(eq_fraction, times_fs)
         eq_density = np.mean(densities[eq_times])
@@ -165,36 +204,52 @@ class MoltenSaltAnalyzer:
         return eq_density
 
     def compute_thermal_expansion(self, eq_fraction: float = 0.1) -> dict:
-        """Compute the thermal expansion coefficient from the initialized trajectory files and temperatures.
+        """Compute the thermal expansion coefficient from the initialized trajectory files and NPT temperatures.
 
         Args:
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
 
+        Raises:
+            ValueError: If no NPT trajectory files are provided.
+            ValueError: If no NPT temperatures are provided.
+            ValueError: If less than two NPT trajectory files are provided.
+
         Returns:
             dict:  Thermal expansion results:
-                - "temperatures": List of temperatures
+                - "temperatures": List of temperatures used
                 - "eq_vols": Equilibrium volumes in Å³ for each temperature
                 - "eq_vols_norm": Equilibrium volumes normalized to the mean volume
                 - "fit": Fit parameters
                 - "fit_line": Fit line
                 - "thermal_expansion": Thermal expansion coefficient in 1/K
         """
+        if self.trajs_npt is None:
+            raise ValueError(
+                "No NPT trajectory files provided. The thermal expansion cannot be computed."
+            )
+        if self.temperatures_npt is None:
+            raise ValueError(
+                "No NPT temperatures provided. The thermal expansion cannot be computed."
+            )
+        if len(self.trajs_npt) < 2:
+            raise ValueError(
+                "At least two NPT trajectory files are required for the thermal expansion."
+            )
         # Get the equilibrium volumes for each trajectory file
         eq_vols = np.zeros(len(self.trajs_npt))
-        for i, traj in enumerate(self.trajs_npt):
+        for i, (traj, times) in enumerate(zip(self.trajs_npt, self.times_fs_npt)):
             volumes = np.array([atoms.get_volume() for atoms in traj])  # Å³
-            times = np.array([atoms.info["time_fs"] for atoms in traj])  # fs
             eq_times = self._get_eq_times(eq_fraction, times)
             eq_vol = np.mean(volumes[eq_times])  # Å³
             eq_vols[i] = eq_vol
 
         # Fit linear thermal expansion to the volumes normalized by the mean volume
         eq_vols_norm = eq_vols / np.mean(eq_vols)
-        fit = np.polyfit(self.temperatures, eq_vols_norm, 1)
-        fit_line = np.polyval(fit, self.temperatures)
+        fit = np.polyfit(self.temperatures_npt, eq_vols_norm, 1)
+        fit_line = np.polyval(fit, self.temperatures_npt)
 
         return {
-            "temperatures": self.temperatures,
+            "temperatures": self.temperatures_npt,
             "eq_vols": eq_vols,
             "eq_vols_norm": eq_vols_norm,
             "fit": fit,
@@ -206,16 +261,14 @@ class MoltenSaltAnalyzer:
         """Compute heat capacity from total energy fluctuations. If both NPT and NVT trajectories are loaded, the heat capacity is computed from the NVT trajectory.
 
         Args:
-            T (float): Temperature in K.
+            T (float): Temperature in K. The trajectory with the matching temperature is selected.
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
 
         Returns:
             float: Heat capacity in J/g/K
         """
         # Can only select based on temperature if the traj temperatures are provided
-        traj, times = self._select_trajectory(
-            "nvt", None if self.temperatures is None else T
-        )
+        traj, times = self._select_trajectory("nvt", T)
         eq_times = self._get_eq_times(eq_fraction, times)
         U = np.array([atoms.get_total_energy() for atoms in traj])[eq_times]
         # Compute the variation and get the approximate heat capacity C
@@ -224,11 +277,11 @@ class MoltenSaltAnalyzer:
         C = var_U / (units._k * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: float | None = None) -> float:
+    def compute_diffusion_coefficient(self, T: float) -> float:
         """Compute diffusion coefficient from mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory.
 
         Args:
-            T (float, optional): Temperature in K. If provided, the diffusion coefficient is computed from the trajectory with the matching temperature. Defaults to None.
+            T (float): Temperature in K.  The trajectory with the matching temperature is selected.
 
         Returns:
             float: Diffusion coefficient in Å²/fs
@@ -273,20 +326,20 @@ class MoltenSaltAnalyzer:
 
     def compute_rdf(
         self,
+        T: float,
         max_num_frames: int = 10000,
         rmax: float = 6.0,
         nbins: int = 100,
         pairs: list[tuple[int, int]] | None = None,
-        T: float | None = None,
     ) -> dict:
         """Compute radial distribution functions. If both NPT and NVT trajectories are loaded, the RDF is computed from the NVT trajectory.
 
         Args:
+            T (float): Temperature in K. The trajectory with the matching temperature is selected.
             max_num_frames (int, optional): Maximum number of trajectory frames to analyze and average over. The frames are selected from the end of the simulation. Defaults to 1000.
             rmax (float, optional): Maximum distance (Å) to consider. Defaults to 6.0.
             nbins (int, optional): Number of bins for the RDF. Defaults to 100.
             pairs (list[tuple] | None, optional): Atom pairs in terms of atomic numbers to compute the RDF for. Defaults to None which means all unique pairs in the system are analyzed.
-            T (float, optional): Temperature in K. If provided, the RDF is computed from the trajectory with the matching temperature. Defaults to None.
 
         Raises:
             ValueError: If no pairs are specified.
@@ -345,13 +398,13 @@ class MoltenSaltAnalyzer:
 
     def compute_viscosity(
         self,
-        T: float | None,
+        T: float,
         tmax_fs: int = 20000,
     ) -> Tuple[float, Tuple[np.ndarray, np.ndarray]]:
         """Compute shear viscosity using Green-Kubo relation. The timestep between frames has to be constant.
 
         Args:
-            T (int): Temperature in K.
+            T (float): Temperature in K. The trajectory with the matching temperature is selected.
             tmax_fs (int, optional): Maximum correlation time in femtoseconds. Defaults to 20000.
 
         Raises:
@@ -364,12 +417,10 @@ class MoltenSaltAnalyzer:
         """
 
         # Can only select based on temperature if the traj temperatures are provided
-        traj, times = self._select_trajectory(
-            "nvt", None if self.temperatures is None else T
-        )
+        traj, times = self._select_trajectory("nvt", T)
 
         # Ensure a constant timestep
-        dt = traj[1].info["time_fs"] - traj[0].info["time_fs"]  # fs
+        dt = times[1] - times[0]
         if not np.allclose(np.diff(times), dt):
             raise ValueError(
                 f"The timestep between the frames is not constant ({np.unique(np.round(np.diff(times), 8))} fs occur)."
@@ -424,13 +475,13 @@ if __name__ == "__main__":  # pragma: no cover
     eq_frac = 0.6
 
     # Can be used for all calculations that use the trajectory files at 1100 K
-    analyzer = MoltenSaltAnalyzer(npt_trajs, nvt_trajs, temperatures)
+    analyzer = MoltenSaltAnalyzer(npt_trajs, nvt_trajs, temperatures, temperatures)
 
     # ===================================================================================
     #   Equilibrium Density
     # ===================================================================================
     for T in temperatures:
-        density = analyzer.compute_eq_density()
+        density = analyzer.compute_eq_density(1100, eq_frac)
         print(f"Density of NaCl at {T} K: {density:.3f} g/cm³")
 
     # ===================================================================================
@@ -465,7 +516,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   RDF
     # ===================================================================================
     for T in temperatures:
-        rdf_data = analyzer.compute_rdf(10, pairs=[(11, 11)], nbins=10, T=T)
+        rdf_data = analyzer.compute_rdf(T, 10, pairs=[(11, 11)], nbins=10)
         print(
             f"Radial distribution function for Na-Na at {T} K: g(r) = {np.round(rdf_data[(11, 11)][1], 2)}... at distances {rdf_data[(11, 11)][0]}... Å"
         )

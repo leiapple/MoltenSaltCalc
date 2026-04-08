@@ -34,9 +34,6 @@ def build_grace(params, device):
         ("OAM", "large", 2): GRACEModels.GRACE_2L_OMAT_large_ft_AM,
     }
 
-    try:
-        model = mapping[(task, size, layers)]
-    except KeyError as e:
-        raise ValueError(f"Invalid GRACE config: size={size}, layer={layers}") from e
+    model = mapping[(task, size, layers)]
 
     return grace_fm(model)
