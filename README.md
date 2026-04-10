@@ -39,25 +39,25 @@ source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
 
-pip install -e ".[grace]"
+pip install -e .[grace]
 ```
 
 ### FAIRCHEM
 
 ```bash
-pip install -e ".[fairchem]"
+pip install -e .[fairchem]
 ```
 
 ### MACE
 
 ```bash
-pip install -e ".[mace]"
+pip install -e .[mace]
 ```
 
 ### Development
 
 ```bash
-pip install -e ".[dev,grace]"  # Installs the selected MLIP backend and all development dependencies (pytest, etc.)
+pip install -e .[dev,grace]  # Installs the selected MLIP backend and all development dependencies (pytest, etc.)
 ```
 
 ## Usage
