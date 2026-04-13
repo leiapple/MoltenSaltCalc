@@ -28,6 +28,8 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
+Tested on Python 3.10, 3.11, 3.12. Python 3.13+ is not yet supported due to upstream dependencies (e.g. tensorflow required by the GRACE (tensorpotential) uMLIP).
+
 ### GRACE
 
 ```bash
