@@ -363,8 +363,7 @@ class MoltenSaltAnalyzer:
             raise ValueError("No pairs specified.")
 
         # Select the last max_num_frames frames
-        n = len(traj)
-        atoms_list = [traj[i] for i in range(max(0, n - max_num_frames), n)]
+        atoms_list = [atoms for atoms in traj[-max_num_frames:]]
 
         # Compute the RDF for each of the selected pairs
         rdf_results = {}
