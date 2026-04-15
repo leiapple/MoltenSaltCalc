@@ -20,7 +20,7 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 ## Features
 
 - System Construction: Construct molten salt systems with customizable compositions in ASE
-- MLIP Integration: Support for FAIRCHEM, MACE, and GRACE MLIPs
+- MLIP Integration: Support for FAIRCHEM, MACE, and GRACE MLIPs (other universal MLIPs can also be added by the user)
 - Molecular Dynamics: Run NPT (constant pressure-temperature) and NVT (constant volume-temperature) simulations
 - Property Analysis: Compute thermodynamic and transport properties such as density, diffusion coefficients, viscosity, and heat capacity
 
@@ -75,7 +75,7 @@ sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "s
 atoms = sim.build_system(
     salt_anion=["F", "Cl"],
     salt_cation=["Na"],
-    anion_Natoms=[10, 5],  # 7 F atoms and 5 Cl atoms
+    anion_Natoms=[10, 5],  # 10 F atoms and 5 Cl atoms
     cation_Natoms=[15],  # 15 Na atoms
     density_guess=2.0,  # g/cm³
 )
