@@ -18,7 +18,7 @@ authors = [
 ]
 
 license = "MIT"
-license-files = ["LICEN[CS]E.*"]
+license-files = ["LICEN[CS]E*"]
 
 keywords = ["molecular dynamics", "ML potentials", "ASE", "materials science", "atomistic simulation", "interatomic potentials", "machine learning interatomic potentials"]
 
