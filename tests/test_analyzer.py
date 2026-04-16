@@ -175,20 +175,18 @@ def test_compute_diffusion_coefficient_arr_fit(analyzer):
 
 def test_compute_rdf(analyzer):
     nbins = 5
+    pair = (11, "Na")
     rdf_data = analyzer.compute_rdf(
-        max_num_frames=3, rmax=5.0, nbins=nbins, pairs=[(11, 11)], T=1200
+        max_num_frames=3, rmax=5.0, nbins=nbins, pairs=[pair], T=1200
     )
     assert isinstance(
         rdf_data, dict
     ), "Radial distribution function results are not returned as a dictionary"
     assert (
-        11,
-        11,
-    ) in rdf_data, (
-        "Radial distribution function results do not contain the key '(11, 11)'"
-    )
+        pair in rdf_data
+    ), f"Radial distribution function results do not contain the key '{pair}'"
     (distances, avg_rdf), distances_ref, avg_rdf_ref = (
-        rdf_data[(11, 11)],
+        rdf_data[pair],
         [0.5, 1.5, 2.5, 3.5, 4.5],
         [0.0, 0.0, 0.01664065, 1.17638912, 1.66206463],
     )
@@ -208,10 +206,12 @@ def test_compute_rdf(analyzer):
     ), f"Average RDF is {avg_rdf} instead of {avg_rdf_ref}"
 
 
-def test_rdf_auto_pairs(analyzer):
-    rdf = analyzer.compute_rdf(T=1100, max_num_frames=2, nbins=2, rmax=2.0)
+def test_rdf_auto_pairs_multiprocessing(analyzer):
+    rdf = analyzer.compute_rdf(T=1100, max_num_frames=2, nbins=2, rmax=2.0, n_workers=2)
     assert isinstance(rdf, dict)
-    rdf_keys, rdf_keys_ref = set(rdf.keys()), set([(11, 11), (11, 17), (17, 17)])
+    rdf_keys, rdf_keys_ref = set(rdf.keys()), set(
+        [("Na", "Na"), ("Na", "Cl"), ("Cl", "Cl")]
+    )
     assert (
         rdf_keys == rdf_keys_ref
     ), f"RDF auto-pairs {rdf_keys} do not match expected {rdf_keys_ref}"
