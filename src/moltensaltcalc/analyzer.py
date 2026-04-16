@@ -6,9 +6,10 @@ from typing import Tuple
 
 import numpy as np
 from ase import Atoms, units
+from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
-from ase.io import Trajectory
+from ase.io import Trajectory, read
 
 
 def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
@@ -36,6 +37,7 @@ class MoltenSaltAnalyzer:
         temperatures_npt: list[float] | list[int] | None = None,
         temperatures_nvt: list[float] | list[int] | None = None,
         timestep_fs: int | float | None = None,
+        calculator: Calculator | None = None,
     ):
         """Initialize the analyzer with the trajectories and the always used properties
 
@@ -45,6 +47,7 @@ class MoltenSaltAnalyzer:
             temperatures_npt (list, optional): List of temperatures in K for the NPT trajectories. Defaults to None.
             temperatures_nvt (list, optional): List of temperatures in K for the NVT trajectories. Defaults to None.
             timestep_fs (int, float, optional): Constant timestep in fs. Only applies if time_fs is not found in the trajectory files. Defaults to None which is treated as 10.0 later but a warning is issued.
+            calculator (ase.calculators.calculator, optional): Calculator to use for the energy and forces predictions (needed in case they are not available from the trajectory files, but leads to a slow initialization). Defaults to None.
 
         Raises:
             ValueError: If the number of trajectory files is not equal to the number of temperatures.
@@ -84,7 +87,10 @@ class MoltenSaltAnalyzer:
             for traj_file in traj_files_npt:
                 if not os.path.exists(traj_file):
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                traj = Trajectory(traj_file)
+                if calculator is None:
+                    traj = Trajectory(traj_file)
+                else:  # The full trajectory needs to be loaded to attach the calculator
+                    traj = read(traj_file, index=":")
                 self.trajs_npt.append(traj)
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
@@ -95,6 +101,10 @@ class MoltenSaltAnalyzer:
                         )
                     times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_npt.append(times)
+                # Attach the calculator if provided
+                if calculator is not None:
+                    for atoms in traj:
+                        atoms.calc = calculator
 
         if traj_files_nvt is not None:
             if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
@@ -105,7 +115,10 @@ class MoltenSaltAnalyzer:
             for traj_file in traj_files_nvt:
                 if not os.path.exists(traj_file):
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                traj = Trajectory(traj_file)
+                if calculator is None:
+                    traj = Trajectory(traj_file)
+                else:  # The full trajectory needs to be loaded to attach the calculator
+                    traj = read(traj_file, index=":")
                 self.trajs_nvt.append(traj)
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
@@ -116,6 +129,10 @@ class MoltenSaltAnalyzer:
                         )
                     times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_nvt.append(times)
+                # Attach the calculator if provided
+                if calculator is not None:
+                    for atoms in traj[1:]:
+                        atoms.calc = calculator
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
