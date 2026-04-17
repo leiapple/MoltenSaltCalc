@@ -103,7 +103,7 @@ class MoltenSaltAnalyzer:
                 self.times_fs_npt.append(times)
                 # Attach the calculator if provided
                 if calculator is not None:
-                    for atoms in traj:
+                    for atoms in traj:  # type: ignore
                         atoms.calc = calculator
 
         if traj_files_nvt is not None:
@@ -131,8 +131,8 @@ class MoltenSaltAnalyzer:
                 self.times_fs_nvt.append(times)
                 # Attach the calculator if provided
                 if calculator is not None:
-                    for atoms in traj[1:]:
-                        atoms.calc = calculator
+                    for atoms in traj[1:]:  # type: ignore
+                        atoms.calc = calculator  # type: ignore
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
