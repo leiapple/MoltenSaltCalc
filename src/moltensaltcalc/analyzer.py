@@ -367,20 +367,22 @@ class MoltenSaltAnalyzer:
     def compute_rdf(
         self,
         T: float,
-        max_num_frames: int = 10000,
+        max_num_frames: int | None = None,
         rmax: float = 6.0,
         nbins: int = 100,
         pairs: list[tuple[int, int]] | list[tuple[str, str]] | None = None,
+        cell_constraints: list[tuple[float, float]] | None = None,
         n_workers: int = 1,
     ) -> dict:
         """Compute radial distribution functions. If both NPT and NVT trajectories are loaded, the RDF is computed from the NVT trajectory.
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
-            max_num_frames (int, optional): Maximum number of trajectory frames to analyze and average over. The frames are selected from the end of the simulation. Defaults to 1000.
+            max_num_frames (int, optional): Maximum number of trajectory frames to compute the RDF for and average over. The frames are selected from the end of the simulation. Defaults to None which means all frames are considered.
             rmax (float, optional): Maximum distance (Å) to consider. Defaults to 6.0.
             nbins (int, optional): Number of bins for the RDF. Defaults to 100.
             pairs (list[tuple] | None, optional): Atom pairs in terms of atomic numbers or symbols to compute the RDF for. Defaults to None which means all unique pairs in the system are analyzed.
+            cell_constraints (list[tuple] | None, optional): Whether to compute the RDF only for a subpart of the cell, given by the list of cell constraints. Each constraint is a tuple of the form (min, max) for the x, y, and z coordinates. The boundaries are inclusive. Defaults to None which means all atoms are included.
             n_workers (int, optional): Number of workers to use for parallel RDF computation. Defaults to 1.
 
         Raises:
@@ -421,30 +423,65 @@ class MoltenSaltAnalyzer:
             raise ValueError("No pairs specified.")
 
         # Select the last max_num_frames frames
-        n = len(traj)
-        atoms_list = [traj[i] for i in range(max(0, n - max_num_frames), n)]
+        if max_num_frames is None:
+            atoms_list = traj
+        else:
+            n = len(traj)
+            atoms_list = [traj[i] for i in range(max(0, n - max_num_frames), n)]
 
         # Compute the RDF for each of the selected pairs
         rdf_results = {}
         with Pool(processes=n_workers) as pool:
             for elements_nr, pair in zip(pairs_numbers, pairs):
-                tasks = [
-                    (
-                        atoms.get_positions(),
-                        atoms.get_atomic_numbers(),
-                        atoms.get_cell(),
-                        atoms.get_pbc(),
-                        rmax,
-                        nbins,
-                        elements_nr,
-                    )
-                    for atoms in atoms_list
-                ]
+                tasks = []
+                for atoms in atoms_list:
+                    positions = atoms.get_positions()
+                    # Apply the cell constraints from the input argument
+                    if cell_constraints is not None:
+                        # Validate cell_constraints format
+                        if (
+                            not isinstance(cell_constraints, list)
+                            or len(cell_constraints) != 3
+                            or not all(
+                                isinstance(t, tuple) and len(t) == 2
+                                for t in cell_constraints
+                            )
+                        ):
+                            raise ValueError(
+                                "cell_constraints must be a list of three (min, max) tuples, one for each coordinate (x, y, z)."
+                            )
+                        # Apply the constraints
+                        selected_atoms = np.array(
+                            [
+                                all(
+                                    cell_constraints[i][0]
+                                    <= pos[i]
+                                    <= cell_constraints[i][1]
+                                    for i in range(3)
+                                )
+                                for pos in positions
+                            ]
+                        )
+                    else:
+                        selected_atoms = np.ones(len(positions), dtype=bool)
+                    tasks += [
+                        (
+                            positions[selected_atoms],
+                            atoms.get_atomic_numbers()[selected_atoms],
+                            atoms.get_cell(),
+                            atoms.get_pbc(),
+                            rmax,
+                            nbins,
+                            elements_nr,
+                        )
+                    ]
                 if n_workers > 1:
                     results = pool.map(_rdf_worker, tasks)
-                else:
+                else:  # Significant speedup if n_workers == 1
                     results = [_rdf_worker(task) for task in tasks]
-                avg_rdf = np.mean([res[0] for res in results], axis=0)
+                avg_rdf = np.mean(
+                    [res[0] for res in results if not np.isnan(res[0]).any()], axis=0
+                )
                 # Distances are the same for all frames, so they can be taken from the final frame
                 rdf_results[pair] = (results[-1][1], avg_rdf)
 
