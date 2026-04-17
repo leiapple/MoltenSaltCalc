@@ -1,0 +1,32 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: MoltenSaltCalc
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Daniel Alexander
+    family-names: Isler
+    email: isler@differ.nl
+    affiliation: DIFFER
+    orcid: 'https://orcid.org/0009-0009-1776-7519'
+  - given-names: Lei
+    family-names: Zhang
+    email: l.zhang@differ.nl
+    affiliation: DIFFER
+    orcid: 'https://orcid.org/0000-0003-4414-7111'
+repository-code: 'https://github.com/leiapple/MoltenSaltCalc'
+abstract: >-
+  MoltenSaltCalc is a Python package for running and
+  analyzing molecular dynamics (MD) simulations of molten
+  salts using machine-learned interatomic potentials (MLIPs)
+  within the Atomic Simulation Environment (ASE).
+keywords:
+  - Chemistry
+  - Physics
+  - Materials Science
+  - MLIP
+license: MIT

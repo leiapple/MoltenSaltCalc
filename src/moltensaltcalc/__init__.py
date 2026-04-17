@@ -10,6 +10,7 @@ The package supports multiple MLIP foundation models (GRACE, MACE, FAIRCHEM) wit
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING
 
 try:
     __version__ = version("moltensaltcalc")
@@ -33,6 +34,12 @@ def __getattr__(name: str):
         return import_module(".analyzer", __name__).MoltenSaltAnalyzer
 
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+# Still show them to static analyzers such as pylance
+if TYPE_CHECKING:
+    from .analyzer import MoltenSaltAnalyzer
+    from .simulator import MoltenSaltSimulator
 
 
 # Directly expose the lightweight available models function

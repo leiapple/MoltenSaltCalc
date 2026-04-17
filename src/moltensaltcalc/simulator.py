@@ -147,6 +147,8 @@ class MoltenSaltSimulator:
         density_guess: float,
         lattice: str = "random",
         random_removal: bool = False,
+        random_min_distance: float = 1.6,
+        random_max_attempts: int = 100000,
     ) -> Atoms:
         """Build a molten salt system with random or rocksalt initial positions.
 
@@ -155,9 +157,11 @@ class MoltenSaltSimulator:
             salt_cation (list[str]): Chemical symbols for cations
             anion_Natoms (list[int]): Number of atoms for each anion type
             cation_Natoms (list[int]): Number of atoms for each cation type
-            density_guess (float): Initial density guess (g/cm³)
+            density_guess (float): Initial density guess in g/cm³
             lattice (str, optional): Initial lattice type ("random" or "rocksalt"). Defaults to "random".
             random_removal (bool, optional):  If True and lattice is "rocksalt", randomly remove excess atoms to match the desired composition. If False, simply take the first N positions from the generated lattice. Defaults to False.
+            random_min_distance (float, optional): Minimum distance between atoms in the random lattice in Å. Defaults to 1.6.
+            random_max_attempts (int, optional): Maximum number of attempts to place atoms at random positions. Defaults to 100000.
 
         Raises:
             ValueError: If the number of distinct ions and the number of amounts of those ions do not match.
@@ -194,33 +198,30 @@ class MoltenSaltSimulator:
         volume_guess = mass / density_guess_au  # Å³
 
         if lattice == "random":
-            initial_box_size = volume_guess ** (1 / 3)  # Å
             # Place atoms with minimum distance constraint
-            min_distance = 1.6  # Å
-            positions_atoms = np.zeros((len(symbols), 3))
+            initial_box_size = volume_guess ** (1 / 3)  # Å
+            positions_atoms = np.zeros((len(symbols), 3))  # Å
             for i in range(len(symbols)):
-                max_attempts = 100000
-                for attempt in range(max_attempts):
+                for _ in range(random_max_attempts):
                     new_pos = np.random.rand(3) * initial_box_size
                     if i == 0:
                         positions_atoms[i] = new_pos
                         break
                     distances = cdist([new_pos], positions_atoms[:i])
-                    if np.all(distances > min_distance):
+                    if np.all(distances > random_min_distance):
                         positions_atoms[i] = new_pos
                         break
-                if attempt == max_attempts - 1:
+                else:
                     raise RuntimeError(
-                        f"The density {density_guess} g/cm³ could not be achieved while maintaining a distance of {min_distance} Å to every other atom. Increase the initial density guess."
+                        f"The density {density_guess} g/cm³ could not be achieved while maintaining a distance of {random_min_distance} Å to every other atom. Increase the initial density guess."
                     )
 
-                # Create ASE Atoms object
-                atoms = Atoms(
-                    symbols=symbols,
-                    positions=positions_atoms,
-                    cell=[initial_box_size] * 3,
-                    pbc=True,
-                )
+            atoms = Atoms(
+                symbols=symbols,
+                positions=positions_atoms,
+                cell=[initial_box_size] * 3,
+                pbc=True,
+            )
 
         elif lattice == "rocksalt":
             # Generate an rocksalt lattice with arbitrary symbols and lattice constant
@@ -291,13 +292,14 @@ class MoltenSaltSimulator:
         logfile: str = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
+
         Args:
             atoms (Atoms): System to simulate
             T (float | int): Temperature in K
             steps (int, optional): Number of MD steps. Defaults to 1000.
             timestep_fs (float, optional): Time step dt for the simulation in fs. Defaults to 1.0.
-            taut_fs (float, optional): Time constant for Berendsen temperature coupling in fs. Defaults to 100.0.
-            taup_fs (float, optional): Time constant for Berendsen pressure coupling in fs. Defaults to 1000.0.
+            taut_fs (float, optional): Time constant for NPTBerendsen temperature coupling in fs. Defaults to 100.0.
+            taup_fs (float, optional): Time constant for NPTBerendsen pressure coupling in fs. Defaults to 1000.0.
             compressibility_per_bar (float, optional): Compressibility of the system per bar in 1/bar. Defaults to 4.0e-5.
             pressure_bar (float, optional): Pressure in bar. Defaults to 1.01325.
             print_interval (int, optional): Interval for printing status. Defaults to 100.
@@ -333,7 +335,7 @@ class MoltenSaltSimulator:
             lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
             interval=write_interval,
         )
-        dyn.attach(trajectory_npt.write, interval=write_interval)
+        dyn.attach(trajectory_npt.write, interval=write_interval)  # type: ignore
 
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)
@@ -397,7 +399,7 @@ class MoltenSaltSimulator:
             lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
             interval=write_interval,
         )
-        dyn.attach(trajectory_nvt.write, interval=write_interval)
+        dyn.attach(trajectory_nvt.write, interval=write_interval)  # type: ignore
 
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)

@@ -28,41 +28,52 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
+Tested on Python 3.10, 3.11, 3.12. Python 3.13+ is not yet supported due to upstream dependencies (e.g. tensorflow required by the GRACE (tensorpotential) uMLIP).
+
 ### GRACE
 
 ```bash
-git clone https://github.com/leiapple/moltensaltcalc.git
-cd moltensaltcalc
-
-python -m venv .venv
+python3 -m venv .venv        # Or any other name
 source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
 
-pip install -e ".[grace]"
+pip install moltensaltcalc[grace]
 ```
 
 ### FAIRCHEM
 
 ```bash
-pip install -e ".[fairchem]"
+pip install moltensaltcalc[fairchem]
 ```
 
 ### MACE
 
 ```bash
-pip install -e ".[mace]"
+pip install moltensaltcalc[mace]
 ```
 
 ### Development
 
+If you want to contribute or make modifications to the code, clone the repo and install in edit mode. For further details, please check our [contributing guidelines](https://github.com/leiapple/moltensaltcalc/blob/main/CONTRIBUTING.md).
+
 ```bash
-pip install -e ".[dev,grace]"  # Installs the selected MLIP backend and all development dependencies (pytest, etc.)
+git clone https://github.com/leiapple/moltensaltcalc.git
+cd moltensaltcalc
+python3 -m venv .venv        # Or any other name
+source .venv/bin/activate   # Linux/macOS
+# or
+.venv\Scripts\activate      # Windows
+pip install -e .[dev,grace]  # Installs the selected MLIP backend and all development dependencies (pytest, etc.) in editable mode
 ```
 
 ## Usage
 
 ### Quick start
+
+```bash
+pip install moltensaltcalc[grace]
+```
 
 ```python
 import numpy as np
@@ -106,29 +117,33 @@ Run the example notebooks in the `demo/` directory to explore:
 ## Project Structure
 ```
 moltensaltcalc/
-├── moltensaltcalc/          # Source code
-│   ├── __init__.py          # Package exports and available models
-│   ├── simulator.py         # MoltenSaltSimulator class
-│   ├── analyzer.py          # MoltenSaltAnalyzer class
-│   ├── model_discovery.py   # Discovery of available MLIPs
-│   ├── model_errors.py      # Error formatting
-│   ├── registry.py          # Model registration
-|   └── models/              # Model implementations
+├── moltensaltcalc/         # Source code
+│   ├── __init__.py         # Package exports and available models
+│   ├── simulator.py        # MoltenSaltSimulator class
+│   ├── analyzer.py         # MoltenSaltAnalyzer class
+│   ├── model_discovery.py  # Discovery of available MLIPs
+│   ├── model_errors.py     # Error formatting
+│   ├── registry.py         # Model registration
+|   └── models/             # Model implementations
 |       ├── __init__.py
 |       ├── grace.py
 |       ├── fairchem.py
 |       └── mace.py
 ├── demo/
-│   ├── simulator.ipynb      # Demo notebook for the simulator
-│   ├── analyzer.ipynb       # Demo notebook for the analyzer
+│   ├── simulator.ipynb     # Demo notebook for the simulator
+│   ├── analyzer.ipynb      # Demo notebook for the analyzer
 |   └── demo_simulation_results/ # Example trajectory used by the demo
-├── tests/
+├── tests/                  # PyTests
 │   ├── __init__.py
 │   ├── test_simulator.py
 │   └── test_analyzer.py
-├── setup.py                # Setup configuration
 ├── pyproject.toml          # Build configuration
 ├── requirements_*.txt      # These files contain exact dependency snapshots used during testing for each MLIP backend.
+├── .gitattributes
+├── .gitignore              # Gitignore file: Python template + some custom rules at the end
+├── .pre-commit-config.yaml # Pre-commit configuration
+├── CITATION.cff            # Citation file
+├── CONTRIBUTING.md         # Contributing guidelines
 ├── LICENSE                 # License file
 └── README.md               # This file
 ```
@@ -139,14 +154,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-For questions, bug reports, or feature requests, please open an issue on GitHub.
-
-## Reference
-
-If you use this package in your research, please cite the associated publication: [TODO Link](https://todo.com)
-
-TODO Add bibtex
-
-## Acknowledgements
-
-TODO: Same as in Paper the funding?
+For questions, bug reports, or feature requests, please open an issue on [GitHub](https://github.com/leiapple/MoltenSaltCalc/issues).

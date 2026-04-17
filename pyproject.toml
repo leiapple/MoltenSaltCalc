@@ -1,13 +1,14 @@
 [build-system]
-requires = ["setuptools>=64.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build >= 0.10.10, <0.11.0"]
+build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
 version = "0.1.0"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
+dynamic = []
 
 authors = [
     { name = "Daniel Isler", email = "isler@differ.nl"},
@@ -16,25 +17,28 @@ authors = [
     { name = "Suleyman Er", email = "s.er@differ.nl"},
 ]
 
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
 
-keywords = ["molecular dynamics", "ML potentials", "ASE", "materials science"]
+keywords = ["molecular dynamics", "ML potentials", "ASE", "materials science", "atomistic simulation", "interatomic potentials", "machine learning interatomic potentials"]
 
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Materials Science",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 3 - Alpha",
 ]
 
 # Core dependencies
 dependencies = [
-    "numpy>=2.0",
-    "ase>=3.0",
-    "scipy>=1.0",
+    "numpy>=1.26,<3.0",
+    "ase>=3.22,<4.0",
+    "scipy>=1.10,<2.0",
 ]
 
 # Optional dependencies (for MLIPs)
@@ -45,6 +49,7 @@ mace = ["mace-torch"]
 
 dev = [
     "pytest",
+    "pytest-cov",
     "pre-commit",
     "black",
     "isort",
@@ -52,19 +57,14 @@ dev = [
 
 # Discoverability
 [project.urls]
-Repository = "https://github.com/TODO"
-
-# Package discovery
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["moltensaltcalc*"]
+Repository = "https://github.com/leiapple/MoltenSaltCalc/"
+Homepage = "https://github.com/leiapple/MoltenSaltCalc/"
+Issues = "https://github.com/leiapple/MoltenSaltCalc/issues"
 
 # Pytest config
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = "-ra -q --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "serial",
 ]
