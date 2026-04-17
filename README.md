@@ -33,7 +33,7 @@ Tested on Python 3.10, 3.11, 3.12. Python 3.13+ is not yet supported due to upst
 ### GRACE
 
 ```bash
-python -m venv .venv        # Or any other name
+python3 -m venv .venv        # Or any other name
 source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
@@ -55,10 +55,12 @@ pip install moltensaltcalc[mace]
 
 ### Development
 
+If you want to contribute or make modifications to the code, clone the repo and install in edit mode. For further details, please check our [contributing guidelines](https://github.com/leiapple/moltensaltcalc/blob/main/CONTRIBUTING.md).
+
 ```bash
 git clone https://github.com/leiapple/moltensaltcalc.git
 cd moltensaltcalc
-python -m venv .venv        # Or any other name
+python3 -m venv .venv        # Or any other name
 source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
