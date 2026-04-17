@@ -4,9 +4,21 @@ from moltensaltcalc.registry import register_model
 @register_model(
     "grace",
     metadata={
-        "model_size": ["small", "medium", "large"],
-        "num_layers": [1, 2],
-        "model_task": ["OAM", "OMAT"],
+        "model_size": {
+            "type": "str",
+            "choices": ["small", "medium", "large"],
+            "description": "Size of the GRACE model.",
+        },
+        "num_layers": {
+            "type": "int",
+            "choices": [1, 2],
+            "description": "Number of message-passing layers.",
+        },
+        "model_task": {
+            "type": "str",
+            "choices": ["OAM", "OMAT"],
+            "description": "Task the model is trained for.",
+        },
     },
 )
 def build_grace(params, device):

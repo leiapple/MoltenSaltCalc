@@ -4,9 +4,21 @@ from moltensaltcalc.registry import register_model
 @register_model(
     "fairchem",
     metadata={
-        "model_size": ["small", "medium"],
-        "model_version": ["1p1", "1p2"],
-        "model_task": ["omc", "omol", "odac", "oc20", "omat"],
+        "model_size": {
+            "type": "str",
+            "choices": ["small", "medium"],
+            "description": "Size of the FairChem model. Size 'medium' is currently only supported for version '1p1'.",
+        },
+        "model_version": {
+            "type": "str",
+            "choices": ["1p1", "1p2"],
+            "description": "Version of the pretrained model.",
+        },
+        "model_task": {
+            "type": "str",
+            "choices": ["omc", "omol", "odac", "oc20", "omat"],
+            "description": "Task the model is trained for.",
+        },
     },
 )
 def build_fairchem(params, device):

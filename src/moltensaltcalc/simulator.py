@@ -292,6 +292,7 @@ class MoltenSaltSimulator:
         logfile: str = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
+
         Args:
             atoms (Atoms): System to simulate
             T (float | int): Temperature in K

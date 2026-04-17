@@ -1,0 +1,9 @@
+/* Improve code block readability */
+code {
+    font-size: 0.9em;
+}
+
+/* Cleaner API blocks */
+.md-typeset .doc-contents {
+    font-size: 0.95em;
+}
