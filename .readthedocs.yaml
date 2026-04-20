@@ -15,8 +15,7 @@ mkdocs:
 
 python:
   install:
-    - method: uv
-      command: pip
+    - method: pip
       path: .
       extras:
         - docs
