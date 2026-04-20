@@ -55,6 +55,11 @@ dev = [
     "isort",
 ]
 
+docs = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
 # Discoverability
 [project.urls]
 Repository = "https://github.com/leiapple/MoltenSaltCalc/"
