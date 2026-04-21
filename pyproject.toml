@@ -44,7 +44,7 @@ dependencies = [
 # Optional dependencies (for MLIPs)
 [project.optional-dependencies]
 grace = ["tensorpotential"]
-fairchem = ["fairchem-core"]
+fairchem = ["fairchem-core>=2.3,<3.0"]
 mace = ["mace-torch"]
 
 dev = [

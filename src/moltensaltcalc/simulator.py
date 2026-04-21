@@ -103,7 +103,7 @@ class MoltenSaltSimulator:
             raise RuntimeError(
                 f"Missing dependency for model '{model_name}'.\n\n"
                 f"{e}\n\n"
-                f"=> Please install the required package."
+                f"=> Please install the required package (version)."
             ) from e
 
         except ValueError as e:
