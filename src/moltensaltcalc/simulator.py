@@ -1,5 +1,6 @@
 import importlib
 import os
+import warnings
 from typing import Tuple
 
 import numpy as np
@@ -105,9 +106,15 @@ class MoltenSaltSimulator:
                 f"=> Please install the required package."
             ) from e
 
-        except Exception as e:
-            # Real model failure
+        except ValueError as e:
+            # Parameter error
             raise ValueError(format_model_error(model_name, model_parameters, e)) from e
+        except AssertionError as e:
+            # Most likely CUDA not available => fallback to CPU
+            if not "cuda" in str(e).lower() and self.device.lower() == "cuda":
+                raise e
+            warnings.warn(f"CUDA not available, falling back to CPU.")
+            calc = MODEL_REGISTRY[model_name](model_parameters, device="cpu")
 
         if calc is None:
             raise RuntimeError(f"Builder for '{model_name}' returned None")
