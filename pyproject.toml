@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -63,6 +63,7 @@ docs = [
 
 # Discoverability
 [project.urls]
+Documentation = "https://moltensaltcalc.readthedocs.io/en/latest/"
 Repository = "https://github.com/leiapple/MoltenSaltCalc/"
 Homepage = "https://github.com/leiapple/MoltenSaltCalc/"
 Issues = "https://github.com/leiapple/MoltenSaltCalc/issues"
