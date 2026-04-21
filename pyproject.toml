@@ -75,3 +75,8 @@ addopts = "-ra -q --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
+
+
+# UV build
+[tool.uv_build]
+include = ["moltensaltcalc/**/*.pyi", "moltensaltcalc/py.typed"]
