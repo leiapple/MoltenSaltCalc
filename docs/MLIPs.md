@@ -41,7 +41,6 @@ sim = MoltenSaltSimulator(
 
 Pre-trained universal models from the FairChem project. Pretrained models are automatically downloaded and require no manual setup.
 
-
 ### Parameters
 
 | Parameter | Type | Choices | Description |
@@ -54,6 +53,7 @@ Pre-trained universal models from the FairChem project. Pretrained models are au
 
 - Medium models currently use version `1p1` internally
 - Make sure to have access to the [UMA model repository](https://huggingface.co/facebook/UMA) and have logged in with e.g. `huggingface-cli login` once
+- When FAIRCHEM is initialized, it would reset the seeds of at least the python `random` and `numpy.random` modules (see [issue #1896](https://github.com/facebookresearch/fairchem/issues/1896)). This is mitigated in moltensaltcalc by resetting to the original state after the model was loaded (see `models/fairchem.py` for details).
 
 ---
 

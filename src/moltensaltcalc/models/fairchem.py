@@ -27,6 +27,9 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_fairchem(params, device):
+    import random
+
+    import numpy as np
     from fairchem.core import FAIRChemCalculator, pretrained_mlip
     from fairchem.core.units.mlip_unit.api.inference import InferenceSettings
 
@@ -43,6 +46,8 @@ def build_fairchem(params, device):
 
     size = params.get("model_size", None)
 
+    # Fairchem resets the random seeds after loading the model, so we need to keep it
+    rng_seed_before = int(np.random.get_state()[1][0])
     if size == "small":
         predictor = pretrained_mlip.get_predict_unit(
             f"uma-s-{params.get('model_version', None)}",
@@ -53,6 +58,8 @@ def build_fairchem(params, device):
         predictor = pretrained_mlip.get_predict_unit("uma-m-1p1", device=device)
     else:
         raise ValueError(f"Invalid FAIRCHEM model_size: {size}")
+    np.random.seed(rng_seed_before)
+    random.seed(rng_seed_before)
 
     return FAIRChemCalculator(
         predictor,
