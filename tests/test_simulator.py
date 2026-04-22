@@ -6,8 +6,8 @@ import pytest
 from ase.io import Trajectory
 
 import moltensaltcalc as msc
+from moltensaltcalc.registry import MODEL_METADATA
 from moltensaltcalc.simulator import (
-    MODEL_METADATA,
     format_model_error,
     format_unknown_model_error,
 )
@@ -69,7 +69,7 @@ def simple_salt():
 def test_available_models():
     models = msc.available_models()
     assert isinstance(models, list)
-    assert "grace" in models
+    assert "grace" in models and "fairchem" in models and "mace" in models
 
 
 def test_build_system_random(simulator, simple_salt):

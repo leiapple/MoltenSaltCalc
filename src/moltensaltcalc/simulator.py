@@ -13,12 +13,13 @@ from ase.md.nptberendsen import NPTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from scipy.spatial.distance import cdist
 
+import moltensaltcalc.models
 from moltensaltcalc.model_discovery import discover_models
 from moltensaltcalc.model_errors import (
     format_model_error,
     format_unknown_model_error,
 )
-from moltensaltcalc.registry import MODEL_METADATA, MODEL_REGISTRY
+from moltensaltcalc.registry import MODEL_REGISTRY
 
 
 class MoltenSaltSimulator:
