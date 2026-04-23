@@ -216,16 +216,16 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NPT run
     assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_npt = parse_md_print_line(npt_lines[-1])
-    # Expected: Step      5 | T = 2603.327386 K | P = 1.736778e-02 bar | V =   997.55 Å³
-    final_T, final_T_ref = last_npt["T"], 2603.327386
+    # Expected: Step      5 | T =  2572.323986 K | P = 0.01811723 bar | V =   997.8 Å³
+    final_T, final_T_ref = last_npt["T"], 2572.323986
     assert np.isclose(
         final_T, final_T_ref, atol=1e-1
     ), f"NPT final T = {final_T:.1f} instead of expected {final_T_ref:.1f}"
-    final_P, final_P_ref = last_npt["P"], 1.736778e-02
+    final_P, final_P_ref = last_npt["P"], 1.811723e-02
     assert np.isclose(
         final_P, final_P_ref, atol=1e-5
     ), f"NPT final P = {final_P:.5f} instead of expected {final_P_ref:.5f}"
-    final_V, final_V_ref = last_npt["V"], 997.55
+    final_V, final_V_ref = last_npt["V"], 997.8
     assert np.isclose(
         final_V, final_V_ref, atol=1e-1
     ), f"NPT final V = {final_V:.1f} instead of expected {final_V_ref:.1f}"
@@ -249,7 +249,7 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     ), f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -119.87897281091125
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026
     assert np.isclose(
         final_energy, final_energy_ref, atol=1e-5
     ), f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
@@ -273,16 +273,16 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_nvt = parse_md_print_line(nvt_lines[-1])
-    # Expected: 5 | T = 1691.756416 K | P = 1.149296e-02 bar | V =   997.55 Å³
-    final_T, final_T_ref = last_nvt["T"], 1691.756416
+    # Expected: 5 | T = 1586.091128 K | P = 0.01384603 bar | V =   997.8 Å³
+    final_T, final_T_ref = last_nvt["T"], 1586.091128
     assert np.isclose(
         final_T, final_T_ref, atol=1e-1
     ), f"NVT final T = {final_T:.1f} instead of expected {final_T_ref:.1f}"
-    final_P, final_P_ref = last_nvt["P"], 1.149296e-02
+    final_P, final_P_ref = last_nvt["P"], 1.384603e-02
     assert np.isclose(
         final_P, final_P_ref, atol=1e-5
     ), f"NVT final P = {final_P:.5f} instead of expected {final_P_ref:.5f}"
-    final_V, final_V_ref = last_nvt["V"], 997.55
+    final_V, final_V_ref = last_nvt["V"], 997.8
     assert np.isclose(
         final_V, final_V_ref, atol=1e-1
     ), f"NVT final V = {final_V:.1f} instead of expected {final_V_ref:.1f}"
@@ -306,7 +306,7 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     ), f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.93872350976946
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126
     assert np.isclose(
         final_energy, final_energy_ref, atol=1e-5
     ), f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"

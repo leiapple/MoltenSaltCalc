@@ -10,7 +10,11 @@ from ase.data import atomic_masses, atomic_numbers
 from ase.io import Trajectory
 from ase.md.nose_hoover_chain import NoseHooverChainNVT
 from ase.md.nptberendsen import NPTBerendsen
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
+from ase.md.velocitydistribution import (
+    MaxwellBoltzmannDistribution,
+    Stationary,
+    ZeroRotation,
+)
 from scipy.spatial.distance import cdist
 
 import moltensaltcalc.models
@@ -323,6 +327,7 @@ class MoltenSaltSimulator:
         # Set up the atomic momenta at the given temperature and remove center of mass motion
         MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
+        ZeroRotation(atoms)
 
         # Run the NPT dynamics simulation
         dyn = NPTBerendsen(
@@ -389,6 +394,7 @@ class MoltenSaltSimulator:
         # Set up the atomic momenta at the given temperature and remove center of mass motion
         MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
+        ZeroRotation(atoms)
 
         # Setup the Nose-Hoover chain NVT dynamics simulation
         dyn = NoseHooverChainNVT(
