@@ -13,7 +13,7 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def build_nequip(params, device):
+def _build(params, device):
     """Import and build the NequIP MLIP."""
     from nequip.integrations.ase import NequIPCalculator
 

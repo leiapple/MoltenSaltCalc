@@ -26,7 +26,7 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def build_grace(params, device):
+def _build(params, device):
     """Import and build the GRACE MLIP."""
     from tensorpotential.calculator.foundation_models import (
         GRACEModels,

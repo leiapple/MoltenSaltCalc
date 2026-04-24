@@ -28,7 +28,7 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def build_mace(params, device):
+def _build(params, device):
     """Import and build the MACE MLIP."""
     from mace.calculators import mace_mp
 

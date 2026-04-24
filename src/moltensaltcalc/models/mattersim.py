@@ -13,7 +13,7 @@ from moltensaltcalc.registry import register_model
         }
     },
 )
-def build_(params, device):
+def _build(params, device):
     """Import and build the MatterSim MLIP."""
     from mattersim.forcefield import MatterSimCalculator
 

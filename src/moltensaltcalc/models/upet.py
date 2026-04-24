@@ -31,7 +31,7 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def build_(params, device):
+def _build(params, device):
     """Import and build the UPET MLIP."""
     from upet.calculator import UPETCalculator
 

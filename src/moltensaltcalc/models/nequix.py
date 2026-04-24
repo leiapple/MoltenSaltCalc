@@ -24,7 +24,7 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def build_(params, device):
+def _build(params, device):
     """Import and build the Nequix MLIP."""
     from nequix.calculator import NequixCalculator
 
