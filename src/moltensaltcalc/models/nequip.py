@@ -1,3 +1,5 @@
+"""Implementation of the NequIP MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -12,6 +14,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_nequip(params, device):
+    """Import and build the NequIP MLIP."""
     from nequip.integrations.ase import NequIPCalculator
 
     calc = NequIPCalculator.from_compiled_model(

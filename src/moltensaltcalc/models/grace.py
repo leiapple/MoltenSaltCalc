@@ -1,3 +1,5 @@
+"""Implementation of the GRACE MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -25,6 +27,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_grace(params, device):
+    """Import and build the GRACE MLIP."""
     from tensorpotential.calculator.foundation_models import (
         GRACEModels,
         grace_fm,
@@ -50,10 +53,7 @@ def build_grace(params, device):
     }
     try:
         model = mapping[(task, size, layers)]
-    except KeyError:
-        raise ValueError(
-            f"Unknown model parameters: {params}. "
-            f"Known parameters: {list(mapping.keys())}"
-        )
+    except KeyError as e:
+        raise ValueError(f"Unknown model parameters: {params}. Known parameters: {list(mapping.keys())}") from e
 
     return grace_fm(model, device=device)

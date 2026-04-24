@@ -1,8 +1,9 @@
+"""MoltenSaltAnalyzer class for analyzing molecular dynamics simulations."""
+
 import os
 import warnings
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 from ase import Atoms, units
@@ -80,24 +81,21 @@ class MoltenSaltAnalyzer:
 
         if traj_files_npt is not None:
             if temperatures_npt is None or len(traj_files_npt) != len(temperatures_npt):
-                raise ValueError(
-                    f"Number of NPT trajectory files and temperatures_npt must match."
-                )
+                raise ValueError("Number of NPT trajectory files and temperatures_npt must match.")
             self.trajs_npt, self.times_fs_npt = [], []
             for traj_file in traj_files_npt:
                 if not os.path.exists(traj_file):
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                if calculator is None:
-                    traj = Trajectory(traj_file)
-                else:  # The full trajectory needs to be loaded to attach the calculator
-                    traj = read(traj_file, index=":")
+                # The full trajectory needs to be loaded to attach a calculator
+                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
                 self.trajs_npt.append(traj)
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
                 else:
                     if no_timestep:
                         warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs)."
+                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
+                            stacklevel=2,
                         )
                     times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_npt.append(times)
@@ -108,24 +106,20 @@ class MoltenSaltAnalyzer:
 
         if traj_files_nvt is not None:
             if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
-                raise ValueError(
-                    f"Number of trajectory files and temperatures_nvt must match."
-                )
+                raise ValueError("Number of trajectory files and temperatures_nvt must match.")
             self.trajs_nvt, self.times_fs_nvt = [], []
             for traj_file in traj_files_nvt:
                 if not os.path.exists(traj_file):
                     raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                if calculator is None:
-                    traj = Trajectory(traj_file)
-                else:  # The full trajectory needs to be loaded to attach the calculator
-                    traj = read(traj_file, index=":")
+                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
                 self.trajs_nvt.append(traj)
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
                 else:
                     if no_timestep:
                         warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs)."
+                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
+                            stacklevel=2,
                         )
                     times = np.arange(len(traj)) * timestep_fs
                 self.times_fs_nvt.append(times)
@@ -142,18 +136,12 @@ class MoltenSaltAnalyzer:
         """
         self.timestep_fs = timestep_fs
         if self.trajs_npt is not None:
-            self.times_fs_npt = [
-                np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_npt
-            ]
+            self.times_fs_npt = [np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_npt]
 
         if self.trajs_nvt is not None:
-            self.times_fs_nvt = [
-                np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_nvt
-            ]
+            self.times_fs_nvt = [np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_nvt]
 
-    def _select_trajectory(
-        self, preferred_type: str, T: int | float
-    ) -> Tuple[Trajectory, np.ndarray]:  # type: ignore
+    def _select_trajectory(self, preferred_type: str, T: int | float) -> tuple[Trajectory, np.ndarray]:  # type: ignore
         """Select trajectory for a given temperature.
 
         Args:
@@ -206,7 +194,7 @@ class MoltenSaltAnalyzer:
         eq_times = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
         return eq_times
 
-    def compute_density_vs_time(self, T: int | float) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_density_vs_time(self, T: int | float) -> tuple[np.ndarray, np.ndarray]:
         """Compute the density from the trajectory file. If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
@@ -216,7 +204,7 @@ class MoltenSaltAnalyzer:
             Tuple[np.ndarray, np.ndarray]: Densities in g/cm³ and times in fs
         """
         traj, times = self._select_trajectory("npt", T)
-        masses = traj[0].get_masses().sum() * units._amu * 1e3  # g
+        masses = traj[0].get_masses().sum() / units.kg * 1e3  # g
         volumes = np.array([atoms.get_volume() for atoms in traj]) * 1e-24  # cm³
         densities = masses / volumes  # g/cm³
         return densities, times
@@ -262,20 +250,14 @@ class MoltenSaltAnalyzer:
                 - "thermal_expansion": Thermal expansion coefficient in 1/K
         """
         if self.trajs_npt is None:
-            raise ValueError(
-                "No NPT trajectory files provided. The thermal expansion cannot be computed."
-            )
+            raise ValueError("No NPT trajectory files provided. The thermal expansion cannot be computed.")
         if self.temperatures_npt is None:
-            raise ValueError(
-                "No NPT temperatures provided. The thermal expansion cannot be computed."
-            )
+            raise ValueError("No NPT temperatures provided. The thermal expansion cannot be computed.")
         if len(self.trajs_npt) < 2:
-            raise ValueError(
-                "At least two NPT trajectory files are required for the thermal expansion."
-            )
+            raise ValueError("At least two NPT trajectory files are required for the thermal expansion.")
         # Get the equilibrium volumes for each trajectory file
         eq_vols = np.zeros(len(self.trajs_npt))
-        for i, (traj, times) in enumerate(zip(self.trajs_npt, self.times_fs_npt)):  # type: ignore
+        for i, (traj, times) in enumerate(zip(self.trajs_npt, self.times_fs_npt, strict=False)):  # type: ignore
             volumes = np.array([atoms.get_volume() for atoms in traj])  # Å³
             eq_times = self._get_eq_times(eq_fraction, times)
             eq_vol = np.mean(volumes[eq_times])  # Å³
@@ -310,9 +292,9 @@ class MoltenSaltAnalyzer:
         eq_times = self._get_eq_times(eq_fraction, times)
         U = np.array([atoms.get_total_energy() for atoms in traj])[eq_times]
         # Compute the variation and get the approximate heat capacity C
-        var_U = np.var(U, ddof=1) * units._e**2  # J²
-        m_tot = traj[0].get_masses().sum() * units._amu * 1e3  # g
-        C = var_U / (units._k * T**2 * m_tot)  # J/g/K
+        var_U = np.var(U, ddof=1) / units.J**2  # J²
+        m_tot = traj[0].get_masses().sum() / units.kg * 1e3  # g
+        C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
     def compute_diffusion_coefficient(self, T: int | float) -> float:
@@ -326,9 +308,7 @@ class MoltenSaltAnalyzer:
         """
         traj, times = self._select_trajectory("nvt", T)
         # Get the positions relative to the center of mass
-        positions = np.array(
-            [atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj]
-        )  # Å
+        positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
         r0 = positions[0]  # Å
         # Compute the mean square displacements without variation of time origins
         msd = np.mean(np.sum((positions - r0) ** 2, axis=2), axis=1)  # Å²
@@ -337,9 +317,7 @@ class MoltenSaltAnalyzer:
 
         return D
 
-    def fit_arrhenius(
-        self, temperatures: list[int] | list[float], diffusion_coeffs: list[float]
-    ) -> dict:
+    def fit_arrhenius(self, temperatures: list[int] | list[float], diffusion_coeffs: list[float]) -> dict:
         """Fit Arrhenius law to diffusion coefficients and temperatures.
 
         Args:
@@ -359,7 +337,7 @@ class MoltenSaltAnalyzer:
         y = np.log(diffusion_coeffs)  # ln(Å²/fs)
 
         m, b = np.polyfit(x, y, 1)  # m = slope, b = intercept
-        Ea = -m * units._k * units.mol  # J/mol
+        Ea = -m * units.kB / units.C * units.mol  # J/mol
         D0 = np.exp(b)  # Å²/fs
 
         return {"Ea": Ea, "D0": D0, "slope": m, "intercept": b}
@@ -403,20 +381,12 @@ class MoltenSaltAnalyzer:
                 for i, a in enumerate(unique_elements)
                 for b in unique_elements[i:]
             ]
-            pairs = [
-                (chemical_symbols[a], chemical_symbols[b]) for a, b in pairs_numbers
-            ]
+            pairs = [(chemical_symbols[a], chemical_symbols[b]) for a, b in pairs_numbers]
         else:
             pairs_numbers = []
             for pair in pairs:
-                if isinstance(pair[0], str):
-                    a = atomic_numbers[pair[0]]
-                else:
-                    a = pair[0]
-                if isinstance(pair[1], str):
-                    b = atomic_numbers[pair[1]]
-                else:
-                    b = pair[1]
+                a = atomic_numbers[pair[0]] if isinstance(pair[0], str) else pair[0]
+                b = atomic_numbers[pair[1]] if isinstance(pair[1], str) else pair[1]
                 pairs_numbers.append((a, b))
 
         if len(pairs_numbers) == 0:
@@ -432,7 +402,7 @@ class MoltenSaltAnalyzer:
         # Compute the RDF for each of the selected pairs
         rdf_results = {}
         with Pool(processes=n_workers) as pool:
-            for elements_nr, pair in zip(pairs_numbers, pairs):
+            for elements_nr, pair in zip(pairs_numbers, pairs, strict=False):
                 tasks = []
                 for atoms in atoms_list:
                     positions = atoms.get_positions()
@@ -442,10 +412,7 @@ class MoltenSaltAnalyzer:
                         if (
                             not isinstance(cell_constraints, list)
                             or len(cell_constraints) != 3
-                            or not all(
-                                isinstance(t, tuple) and len(t) == 2
-                                for t in cell_constraints
-                            )
+                            or not all(isinstance(t, tuple) and len(t) == 2 for t in cell_constraints)
                         ):
                             raise ValueError(
                                 "cell_constraints must be a list of three (min, max) tuples, one for each coordinate (x, y, z)."
@@ -453,12 +420,7 @@ class MoltenSaltAnalyzer:
                         # Apply the constraints
                         selected_atoms = np.array(
                             [
-                                all(
-                                    cell_constraints[i][0]
-                                    <= pos[i]
-                                    <= cell_constraints[i][1]
-                                    for i in range(3)
-                                )
+                                all(cell_constraints[i][0] <= pos[i] <= cell_constraints[i][1] for i in range(3))
                                 for pos in positions
                             ]
                         )
@@ -475,13 +437,8 @@ class MoltenSaltAnalyzer:
                             elements_nr,
                         )
                     ]
-                if n_workers > 1:
-                    results = pool.map(_rdf_worker, tasks)
-                else:  # Significant speedup if n_workers == 1
-                    results = [_rdf_worker(task) for task in tasks]
-                avg_rdf = np.mean(
-                    [res[0] for res in results if not np.isnan(res[0]).any()], axis=0
-                )
+                results = pool.map(_rdf_worker, tasks) if n_workers > 1 else [_rdf_worker(task) for task in tasks]
+                avg_rdf = np.mean([res[0] for res in results if not np.isnan(res[0]).any()], axis=0)
                 # Distances are the same for all frames, so they can be taken from the final frame
                 rdf_results[pair] = (results[-1][1], avg_rdf)
 
@@ -507,7 +464,7 @@ class MoltenSaltAnalyzer:
         self,
         T: float,
         tmax_fs: int = 20000,
-    ) -> Tuple[float, Tuple[np.ndarray, np.ndarray]]:
+    ) -> tuple[float, tuple[np.ndarray, np.ndarray]]:
         """Compute shear viscosity using Green-Kubo relation. The timestep between frames has to be constant.
 
         Args:
@@ -536,19 +493,14 @@ class MoltenSaltAnalyzer:
         nmax = min(len(times), int(np.ceil(tmax_fs / dt)))
 
         # Get the stress tensors and extract the shear stress components
-        stress_ts = np.array(
-            [atoms.get_stress() for atoms in traj], dtype=float
-        )  # eV/Å³
+        stress_ts = np.array([atoms.get_stress() for atoms in traj], dtype=float)  # eV/Å³
         shear_stress = stress_ts[:, 3:]  # eV/Å³
         # Remove means to isolate equilibrium fluctuations
         shear_stress -= np.mean(shear_stress, axis=0)  # eV/Å³
 
         # Compute the average of the autocorrelation of the shear stress components
         ac_mean = np.mean(
-            [
-                self._autocorr_fft(shear_stress[:, i], nmax)
-                for i in range(shear_stress.shape[1])
-            ],
+            [self._autocorr_fft(shear_stress[:, i], nmax) for i in range(shear_stress.shape[1])],
             axis=0,
         )  # eV²/Å⁶
         ac_times = np.arange(ac_mean.size) * dt  # fs
@@ -556,8 +508,8 @@ class MoltenSaltAnalyzer:
         # Get the viscosity coefficient by integrating the autocorrelation function
         integral = np.trapezoid(ac_mean, ac_times)  # eV²/Å⁶ fs
         V = np.mean([atoms.get_volume() for atoms in traj])  # Å³
-        eta = V * integral / (units._k * T)  # eV²/(Å³ J/K K) fs = eV²/(Å³ J) fs
-        eta *= units._e**2 / 1e-15  # J/m³ s = Pa s
+        eta = V * integral / (units.kB / units.C * T)  # eV²/(Å³ J/K K) fs = eV²/(Å³ J) fs
+        eta /= units.J**2 * 1e-15  # J/m³ s = Pa s
 
         return (eta, (ac_mean, ac_times))
 
@@ -569,52 +521,50 @@ if __name__ == "__main__":  # pragma: no cover
     )
 
     # Assumes the NPT and NVT trajectories have already been generated with the simulator (generate with simulator.py)
-    base_dir = os.path.join(
-        "demo", "demo_simulation_results", "GRACE_1L_NaCl_super_short"
-    )
+    base_dir = os.path.join("demo", "demo_simulation_results", "GRACE_1L_NaCl_super_short")
     npt_dir = os.path.join(base_dir, "NPT")
     nvt_dir = os.path.join(base_dir, "NVT")
-    temperatures = [1100, 1150, 1200]
-    npt_trajs = [os.path.join(npt_dir, f"npt_NaCl_{T}K.traj") for T in temperatures]
-    nvt_trajs = [os.path.join(nvt_dir, f"nvt_NaCl_{T}K.traj") for T in temperatures]
+    temps = [1100, 1150, 1200]
+    npt_trajs = [os.path.join(npt_dir, f"npt_NaCl_{T}K.traj") for T in temps]
+    nvt_trajs = [os.path.join(nvt_dir, f"nvt_NaCl_{T}K.traj") for T in temps]
 
     # Typically 0.1, but since the example trajectories contain only 10 frames, 0.6 is used
-    eq_frac = 0.6
+    EQ_FRAC = 0.6
 
     # Can be used for all calculations that use the trajectory files at 1100 K
-    analyzer = MoltenSaltAnalyzer(npt_trajs, nvt_trajs, temperatures, temperatures)
+    analyzer = MoltenSaltAnalyzer(npt_trajs, nvt_trajs, temps, temps)
 
     # ===================================================================================
     #   Equilibrium Density
     # ===================================================================================
-    for T in temperatures:
-        density = analyzer.compute_eq_density(1100, eq_frac)
-        print(f"Density of NaCl at {T} K: {density:.3f} g/cm³")
+    for temp in temps:
+        density = analyzer.compute_eq_density(temp, EQ_FRAC)
+        print(f"Density of NaCl at {temp} K: {density:.3f} g/cm³")
 
     # ===================================================================================
     #   Thermal Expansion
     # ===================================================================================
-    thm_exp_results = analyzer.compute_thermal_expansion(eq_frac)
+    thm_exp_results = analyzer.compute_thermal_expansion(EQ_FRAC)
     print(f"Thermal expansion:  β = {thm_exp_results['thermal_expansion']:.6e} K⁻¹")
 
     # ===================================================================================
     #   Heat Capacity
     # ===================================================================================
-    for T in temperatures:
-        heat_cap = analyzer.compute_heat_capacity(T, eq_frac)
-        print(f"Heat capacity at {T} K: C = {heat_cap:.6e} J/g/K")
+    for temp in temps:
+        heat_cap = analyzer.compute_heat_capacity(temp, EQ_FRAC)
+        print(f"Heat capacity at {temp} K: C = {heat_cap:.6e} J/g/K")
 
     # ===================================================================================
     #   Diffusion Coefficient
     # ===================================================================================
-    diffusion_coeffs = []
-    for T in temperatures:
+    diff_coeffs = []
+    for temp in temps:
         # Set up the analyzer for each of the NVT trajectories to get the diffusion coefficient there
-        diff_coeff = analyzer.compute_diffusion_coefficient(T)
-        print(f"Diffusion coefficient at {T} K: D = {diff_coeff:.6e} Å²/fs")
-        diffusion_coeffs.append(diff_coeff)
+        diff_coeff = analyzer.compute_diffusion_coefficient(temp)
+        print(f"Diffusion coefficient at {temp} K: D = {diff_coeff:.6e} Å²/fs")
+        diff_coeffs.append(diff_coeff)
     # Get the activation energy
-    diffusion_results = analyzer.fit_arrhenius(temperatures, diffusion_coeffs)
+    diffusion_results = analyzer.fit_arrhenius(temps, diff_coeffs)
     print(
         f"Arrhenius parameters for the self-diffusion of NaCl: Ea = {diffusion_results['Ea']:.6e} J/mol, D0 = {diffusion_results['D0']:.6e} Å²/fs"
     )
@@ -622,16 +572,16 @@ if __name__ == "__main__":  # pragma: no cover
     # ===================================================================================
     #   RDF
     # ===================================================================================
-    for T in temperatures:
-        rdf_data = analyzer.compute_rdf(T, 10, pairs=[(11, 11)], nbins=10)
+    for temp in temps:
+        rdf_data = analyzer.compute_rdf(temp, 10, pairs=[(11, 11)], nbins=10)
         print(
-            f"Radial distribution function for Na-Na at {T} K: g(r) = {np.round(rdf_data[(11, 11)][1], 2)}... at distances {rdf_data[(11, 11)][0]}... Å"
+            f"Radial distribution function for Na-Na at {temp} K: g(r) = {np.round(rdf_data[(11, 11)][1], 2)}... at distances {rdf_data[(11, 11)][0]}... Å"
         )
 
     # ===================================================================================
     #   Viscosity
     # ===================================================================================
-    for T in temperatures:
-        viscosity, (ac_mean, ac_times) = analyzer.compute_viscosity(T)
-        # ac_mean and ac_times can be used to check that the plateau of the autocorrelation function reaches tmax_fs
-        print(f"Viscosity at {T} K: η = {viscosity:.6e} Pa·s")
+    for temp in temps:
+        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(temp)
+        # autocorr_mean and autocorr_times can be used to check that the plateau of the autocorrelation function reaches tmax_fs
+        print(f"Viscosity at {temp} K: η = {viscosity:.6e} Pa·s")

@@ -1,3 +1,5 @@
+"""Implementation of the 7net MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -39,6 +41,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_(params, device):
+    """Import and build the 7net MLIP."""
     from sevenn.calculator import SevenNetCalculator
 
     calc = SevenNetCalculator(

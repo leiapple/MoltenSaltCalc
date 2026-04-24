@@ -1,3 +1,5 @@
+"""Implementation of the MatterSim MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -12,6 +14,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_(params, device):
+    """Import and build the MatterSim MLIP."""
     from mattersim.forcefield import MatterSimCalculator
 
     calc = MatterSimCalculator(load_path=params.get("model_path", None), device=device)

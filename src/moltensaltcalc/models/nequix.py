@@ -1,3 +1,5 @@
+"""Implementation of the Nequix MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -23,6 +25,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_(params, device):
+    """Import and build the Nequix MLIP."""
     from nequix.calculator import NequixCalculator
 
     model_name = params.get("model_task", "omat")

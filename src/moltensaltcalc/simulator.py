@@ -1,7 +1,8 @@
+"""MoltenSaltSimulator class for building and running molecular dynamics simulations."""
+
 import importlib
 import os
 import warnings
-from typing import Tuple
 
 import numpy as np
 from ase import Atoms, units
@@ -17,7 +18,6 @@ from ase.md.velocitydistribution import (
 )
 from scipy.spatial.distance import cdist
 
-import moltensaltcalc.models
 from moltensaltcalc.model_discovery import discover_models
 from moltensaltcalc.model_errors import (
     format_model_error,
@@ -60,15 +60,11 @@ class MoltenSaltSimulator:
         try:
             importlib.import_module(f"moltensaltcalc.models.{model_name}")
         except ModuleNotFoundError as e:
-            raise ImportError(
-                f"Model module 'moltensaltcalc.models.{model_name}' not found.\n"
-            ) from e
+            raise ImportError(f"Model module 'moltensaltcalc.models.{model_name}' not found.\n") from e
 
         except ImportError as e:
             raise ImportError(
-                f"Model '{model_name}' could not be imported.\n"
-                f"This may be due to missing dependencies.\n"
-                f"Original error: {repr(e)}"
+                f"Model '{model_name}' could not be imported.\nThis may be due to missing dependencies.\nOriginal error: {repr(e)}"
             ) from e
 
     def _set_calculator(self, model_name: str, model_parameters: dict):
@@ -90,15 +86,11 @@ class MoltenSaltSimulator:
         try:
             self._lazy_import_model(model_name)
         except ImportError as e:
-            raise ValueError(
-                format_unknown_model_error(model_name, discoverable_models)
-            ) from e
+            raise ValueError(format_unknown_model_error(model_name, discoverable_models)) from e
 
         # Registry check (system integrity)
         if model_name not in MODEL_REGISTRY:
-            raise RuntimeError(
-                f"Model '{model_name}' was imported but did not register itself."
-            )
+            raise RuntimeError(f"Model '{model_name}' was imported but did not register itself.")
 
         # Instantiate
         try:
@@ -106,21 +98,17 @@ class MoltenSaltSimulator:
         except ImportError as e:
             # Dependency issue
             raise RuntimeError(
-                f"Missing dependency for model '{model_name}'.\n\n"
-                f"{e}\n\n"
-                f"=> Please install the required package (version)."
+                f"Missing dependency for model '{model_name}'.\n\n{e}\n\n=> Please install the required package (version)."
             ) from e
 
         except ValueError as e:
             # Parameter error
             raise ValueError(format_model_error(model_name, model_parameters, e)) from e
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Most likely CUDA not available => fallback to CPU
-            if not "cuda" in str(e).lower() and self.device.lower() == "cuda":
-                raise ValueError(
-                    format_model_error(model_name, model_parameters, e)
-                ) from e
-            warnings.warn(f"CUDA not available, falling back to CPU.")
+            if "cuda" not in str(e).lower() and self.device.lower() == "cuda":
+                raise ValueError(format_model_error(model_name, model_parameters, e)) from e
+            warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
             calc = MODEL_REGISTRY[model_name](model_parameters, device="cpu")
 
         if calc is None:
@@ -128,9 +116,7 @@ class MoltenSaltSimulator:
 
         self.calc = calc
 
-    def create_simulation_folder(
-        self, base_name: str = "simulation"
-    ) -> Tuple[str, str]:
+    def create_simulation_folder(self, base_name: str = "simulation") -> tuple[str, str]:
         """Create a folder structure for simulation outputs.
 
 
@@ -156,8 +142,8 @@ class MoltenSaltSimulator:
         self,
         salt_anion: list[str],
         salt_cation: list[str],
-        anion_Natoms: list[int],
-        cation_Natoms: list[int],
+        n_anions: list[int],
+        n_cations: list[int],
         density_guess: float,
         lattice: str = "random",
         random_removal: bool = False,
@@ -169,8 +155,8 @@ class MoltenSaltSimulator:
         Args:
             salt_anion (list[str]): Chemical symbols for anions
             salt_cation (list[str]): Chemical symbols for cations
-            anion_Natoms (list[int]): Number of atoms for each anion type
-            cation_Natoms (list[int]): Number of atoms for each cation type
+            n_anions (list[int]): Number of atoms for each anion type
+            n_cations (list[int]): Number of atoms for each cation type
             density_guess (float): Initial density guess in g/cm³
             lattice (str, optional): Initial lattice type ("random" or "rocksalt"). Defaults to "random".
             random_removal (bool, optional):  If True and lattice is "rocksalt", randomly remove excess atoms to match the desired composition. If False, simply take the first N positions from the generated lattice. Defaults to False.
@@ -187,28 +173,28 @@ class MoltenSaltSimulator:
         """
 
         if (len(salt_anion), len(salt_cation)) != (
-            len(anion_Natoms),
-            len(cation_Natoms),
+            len(n_anions),
+            len(n_cations),
         ):
             raise ValueError(
-                f"The number of distinct ions {(len(salt_anion), len(salt_cation))} and the length of the list of atoms {(len(anion_Natoms), len(cation_Natoms))} must be equal"
+                f"The number of distinct ions {(len(salt_anion), len(salt_cation))} and the length of the list of atoms {(len(n_anions), len(n_cations))} must be equal"
             )
 
         # Construct the symbols array by spreading anions and cations evenly, shuffled within their groups
-        cations = np.random.permutation(np.repeat(salt_cation, cation_Natoms))
-        anions = np.random.permutation(np.repeat(salt_anion, anion_Natoms))
-        Ntot = len(cations) + len(anions)
-        idx = np.linspace(0, Ntot - 1, len(cations), dtype=int)
-        mask = np.zeros(Ntot, dtype=bool)
+        cations = np.random.permutation(np.repeat(salt_cation, n_cations))
+        anions = np.random.permutation(np.repeat(salt_anion, n_anions))
+        n_tot = len(cations) + len(anions)
+        idx = np.linspace(0, n_tot - 1, len(cations), dtype=int)
+        mask = np.zeros(n_tot, dtype=bool)
         mask[idx] = True
-        symbols = np.empty(Ntot, dtype="<U2")
+        symbols = np.empty(n_tot, dtype="<U2")
         symbols[mask] = cations
         symbols[~mask] = anions
 
         # Calculate initial box size from density guess
         mass = sum(atomic_masses[atomic_numbers[sym]] for sym in symbols)  # amu
         # The density_guess needs to be converted from g/cm³ to amu/Å³
-        density_guess_au = density_guess * 1e3 / (units._amu * units.m**3)
+        density_guess_au = density_guess * 1e3 * units.kg / units.m**3
         volume_guess = mass / density_guess_au  # Å³
 
         if lattice == "random":
@@ -259,12 +245,8 @@ class MoltenSaltSimulator:
                         size=num_cat_positions_to_remove,
                         replace=False,
                     )
-                    indices_to_remove = np.sort(
-                        np.concatenate((cat_indices_to_remove, an_indices_to_remove))
-                    )
-                    atoms = atoms[
-                        np.setdiff1d(np.arange(len(atoms)), indices_to_remove)
-                    ]
+                    indices_to_remove = np.sort(np.concatenate((cat_indices_to_remove, an_indices_to_remove)))
+                    atoms = atoms[np.setdiff1d(np.arange(len(atoms)), indices_to_remove)]
                 else:
                     atoms = atoms[: len(symbols)]
 
@@ -345,9 +327,7 @@ class MoltenSaltSimulator:
         )
         # Write the initial atoms to the trajectory file with the time set to 0 fs
         atoms.info.update({"time_fs": 0.0})
-        trajectory_npt = Trajectory(
-            traj_file, "w", atoms, properties=["energy", "forces", "stress"]
-        )
+        trajectory_npt = Trajectory(traj_file, "w", atoms, properties=["energy", "forces", "stress"])
         # Attach the trajectory writer and time updater to the dynamics simulation
         dyn.attach(
             lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
@@ -412,9 +392,7 @@ class MoltenSaltSimulator:
 
         # Write the initial atoms to the trajectory file
         atoms.info.update({"time_fs": 0.0})
-        trajectory_nvt = Trajectory(
-            traj_file, "w", atoms, properties=["energy", "forces", "stress"]
-        )
+        trajectory_nvt = Trajectory(traj_file, "w", atoms, properties=["energy", "forces", "stress"])
 
         # Attach the trajectory writer and time updater to the dynamics simulation
         dyn.attach(
@@ -446,51 +424,45 @@ if __name__ == "__main__":  # pragma: no cover
             "num_layers": 1,
         },
     )
-    n_steps = 10  # In practice this needs to be ~100'000 steps
-    n_steps_output = 2
-    write_interval = 2
-    timestep_fs = 10.0  # Quite long, in practice usually 1 fs
+    N_STEPS = 10  # In practice this needs to be ~100'000 steps
+    N_STEPS_OUTPUT = 2
+    N_WRITE = 2
+    TIMESTEP = 10.0  # Quite long, in practice usually 1 fs
     # Define salts to simulate like:   "salt_name": ([anions], [cations], amount_of_anions, amount_of_cations)
     salts = {"NaCl": (["Cl"], ["Na"], [150], [150])}
     # Define at which temperatures you want to calculate the properties per salt
     temperatures = {"NaCl": [1100, 1150, 1200]}
     # Define what density you guess the salt to have at the corresponding temperatures
-    density_guesses = {"NaCl": [1.542, 1.515, 1.488]}
+    initial_densities = {"NaCl": [1.542, 1.515, 1.488]}
     # Run the simulation
-    for salt_name, (anions, cations, n_anions, n_cations) in salts.items():
+    for salt_name, (an, cat, n_an, n_cat) in salts.items():
         print(f"\nRunning NPT simulations for {salt_name}...\n")
 
         # Create folders to store the trajectories
-        npt_dir, nvt_dir = sim.create_simulation_folder(
-            base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_super_short")
-        )
+        npt, nvt = sim.create_simulation_folder(base_name=os.path.join("test_sim", f"GRACE_1L_{salt_name}_super_short"))
 
         # Pair each temperature with its corresponding density guess
-        for T, density_guess in zip(
-            temperatures[salt_name], density_guesses[salt_name]
-        ):
-            atoms = sim.build_system(
-                anions, cations, n_anions, n_cations, density_guess, lattice="rocksalt"
-            )
-            traj_file_npt = os.path.join(npt_dir, f"npt_{salt_name}_{T}K.traj")
-            traj_file_nvt = os.path.join(nvt_dir, f"nvt_{salt_name}_{T}K.traj")
-            atoms = sim.run_npt_simulation(
-                atoms,
-                T,
-                steps=n_steps,
-                print_interval=n_steps_output,
-                write_interval=write_interval,
+        for temp, initial_density in zip(temperatures[salt_name], initial_densities[salt_name], strict=False):
+            system = sim.build_system(an, cat, n_an, n_cat, initial_density, lattice="rocksalt")
+            traj_file_npt = os.path.join(npt, f"npt_{salt_name}_{temp}K.traj")
+            traj_file_nvt = os.path.join(nvt, f"nvt_{salt_name}_{temp}K.traj")
+            sim.run_npt_simulation(
+                system,
+                temp,
+                steps=N_STEPS,
+                print_interval=N_STEPS_OUTPUT,
+                write_interval=N_WRITE,
                 traj_file=traj_file_npt,
                 print_status=True,
-                timestep_fs=timestep_fs,
+                timestep_fs=TIMESTEP,
             )
             sim.run_nvt_simulation(
-                atoms,
-                T,
-                steps=n_steps,
-                print_interval=n_steps_output,
-                timestep_fs=timestep_fs,
-                write_interval=write_interval,
+                system,
+                temp,
+                steps=N_STEPS,
+                print_interval=N_STEPS_OUTPUT,
+                write_interval=N_WRITE,
                 traj_file=traj_file_nvt,
                 print_status=True,
+                timestep_fs=TIMESTEP,
             )

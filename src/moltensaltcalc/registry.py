@@ -1,4 +1,6 @@
-from typing import Callable
+"""Registry for storing and retrieving uMLIP models."""
+
+from collections.abc import Callable
 
 MODEL_REGISTRY = {}
 MODEL_METADATA = {}

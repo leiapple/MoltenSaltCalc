@@ -1,3 +1,5 @@
+"""Implementation of the CHGNet MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -12,12 +14,11 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_(params, device):
+    """Import and build the CHGNet MLIP."""
     from chgnet.model.dynamics import CHGNetCalculator
     from chgnet.model.model import CHGNet
 
-    chgnet = CHGNet.load(
-        model_name=params.get("model_name", "0.3.0"), use_device=device
-    )
+    chgnet = CHGNet.load(model_name=params.get("model_name", "0.3.0"), use_device=device)
     calc = CHGNetCalculator(chgnet, use_device=device)
 
     return calc

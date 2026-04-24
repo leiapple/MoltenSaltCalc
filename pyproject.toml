@@ -57,8 +57,6 @@ upet = ["upet"]
 chgnet = ["chgnet"]
 
 dev = [
-    "black",
-    "isort",
     "nox",
     "pre-commit",
     "pytest",
@@ -79,6 +77,10 @@ Repository = "https://github.com/leiapple/MoltenSaltCalc/"
 Homepage = "https://github.com/leiapple/MoltenSaltCalc/"
 Issues = "https://github.com/leiapple/MoltenSaltCalc/issues"
 
+# UV build
+[tool.uv_build]
+include = ["moltensaltcalc/**/*.pyi", "moltensaltcalc/py.typed"]
+
 # Pytest config
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -88,7 +90,79 @@ markers = [
     "umlip: marks tests as requiring a uMLIP backend to be installed (run with 'nox -s' or 'nox -s \"umlip(model='model_name')\"'). These tests are skipped by default as they require different environments.",
 ]
 
+# Ruff config
+[tool.ruff]
+line-length = 120
+target-version = "py312"
 
-# UV build
-[tool.uv_build]
-include = ["moltensaltcalc/**/*.pyi", "moltensaltcalc/py.typed"]
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # import sorting
+    "B",   # flake8-bugbear (real bug risks)
+    "UP",  # pyupgrade (modern Python)
+    "SIM", # simplify code
+    "C4",  # comprehensions
+    "PIE", # misc useful improvements
+]
+ignore = ["E501"]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+
+# Pylint config
+[tool.pylint.MAIN]
+# Formerly [MASTER]
+
+[tool.pylint.FORMAT]
+max-line-length = 500
+
+[tool.pylint.BASIC]
+good-names = [
+    "i",
+    "j",
+    "k",
+    "T",
+    "U",
+    "V",
+    "D",
+    "Ea",
+    "D0",
+    "C",
+    "var_U",
+    "7net",
+    "test_uMLIPs",
+]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = ["import-outside-toplevel"]
+
+[tool.pylint.DESIGN]
+max-args = 15
+max-positional-arguments = 15
+max-branches = 30
+max-locals = 35
+max-statements = 60
+
+[tool.pylint.TYPECHECK]
+ignored-modules = [
+    "numpy",
+    "ase",
+    "scipy",
+    "pytest",
+    "nox",
+    "mace",
+    "chgnet",
+    "nequip",
+    "nequix",
+    "mattersim",
+    "fairchem",
+    "sevenn",
+    "tensorpotential",
+    "upet",
+]
+generated-members = ["GRACEModels.*"]

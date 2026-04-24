@@ -1,3 +1,5 @@
+"""Implementation of the UPET MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -30,6 +32,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_(params, device):
+    """Import and build the UPET MLIP."""
     from upet.calculator import UPETCalculator
 
     model_name = f"pet-{params.get('model_task', 'omat').lower()}-{params.get('model_size', 's').lower()}"

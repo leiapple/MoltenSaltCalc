@@ -1,3 +1,5 @@
+"""Implementation of the FAIRCHEM MLIP."""
+
 from moltensaltcalc.registry import register_model
 
 
@@ -30,6 +32,7 @@ from moltensaltcalc.registry import register_model
     },
 )
 def build_fairchem(params, device):
+    """Import and build the FAIRCHEM MLIP."""
     import random
 
     import numpy as np
@@ -50,7 +53,7 @@ def build_fairchem(params, device):
     # Fairchem resets the random seeds after loading the model, so we need to keep it
     rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
     predictor = pretrained_mlip.get_predict_unit(
-        f"uma-{params.get("model_size", "s").lower()}-{params.get('model_version', '1p2').lower()}",
+        f"uma-{params.get('model_size', 's').lower()}-{params.get('model_version', '1p2').lower()}",
         device=device,
         inference_settings=settings,
     )

@@ -1,3 +1,5 @@
+"""Nox configuration for uMLIP testing in different environments."""
+
 from pathlib import Path
 
 import nox
@@ -20,6 +22,7 @@ MODELS = [
 @nox.session(name="umlip", venv_backend="uv", reuse_venv=True)
 @nox.parametrize("model", MODELS)
 def test_umlip(session, model):
+    """Test uMLIPs specified in the model parameter."""
     session.install("pytest")
     session.install(f".[{model}]")
     session.run(

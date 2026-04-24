@@ -1,3 +1,5 @@
+"""Discovery of available MLIPs by querying the models directory."""
+
 import pkgutil
 
 import moltensaltcalc.models as models_pkg
