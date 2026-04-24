@@ -28,7 +28,7 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
-Tested on Python 3.10, 3.11, 3.12. Python 3.13+ is not yet supported due to upstream dependencies (e.g. tensorflow required by the GRACE (tensorpotential) uMLIP).
+Tested on Python 3.10, 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), grace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
 
 ### GRACE
 
@@ -123,20 +123,30 @@ moltensaltcalc/
 │   ├── analyzer.py         # MoltenSaltAnalyzer class
 │   ├── model_discovery.py  # Discovery of available MLIPs
 │   ├── model_errors.py     # Error formatting
-│   ├── registry.py         # Model registration
-|   └── models/             # Model implementations
+│   ├── registry.py         # MLIP model registration
+|   └── models/             # MLIP model implementations
 |       ├── __init__.py
-|       ├── grace.py
+|       ├── 7net.py
+|       ├── chgnet.py
 |       ├── fairchem.py
-|       └── mace.py
+|       ├── grace.py
+|       ├── mace.py
+|       ├── mattersim.py
+|       ├── nequip.py
+|       ├── nequix.py
+|       └── upet.py
 ├── demo/
 │   ├── simulator.ipynb     # Demo notebook for the simulator
 │   ├── analyzer.ipynb      # Demo notebook for the analyzer
 |   └── demo_simulation_results/ # Example trajectory used by the demo
 ├── tests/                  # PyTests
 │   ├── __init__.py
-│   ├── test_simulator.py
-│   └── test_analyzer.py
+│   ├── test_simulator.py   # Tests for the simulator using the GRACE uMLIP
+│   ├── test_analyzer.py    # Tests for the analyzer using the stored trajectories
+|   ├── test_uMLIPs.py      # Tests for the different uMLIP backends
+│   ├── test_analyzer_trajectories/  # Example trajectories used by the tests
+|   └── test_uMLIP_precompiled/  # Precompiled models used by the tests
+├── noxfile.py              # Nox configuration for uMLIP testing in different environments
 ├── pyproject.toml          # Build configuration
 ├── requirements_*.txt      # These files contain exact dependency snapshots used during testing for each MLIP backend.
 ├── .gitattributes
@@ -150,7 +160,7 @@ moltensaltcalc/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License, see the [LICENSE](https://github.com/leiapple/MoltenSaltCalc/blob/main/LICENSE) file for details.
 
 ## Support
 

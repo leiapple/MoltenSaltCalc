@@ -238,18 +238,18 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     assert (
         N_frames == N_frames_ref
     ), f"NPT Trajectory length is {N_frames} instead of {N_frames_ref}"
-    last_atoms = traj[-1]
+    last_atoms = traj[-1]  # type: ignore
     # Ensure the timestep is saved and correct
     assert (
-        "time_fs" in last_atoms.info
-    ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"
-    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
     assert np.isclose(
         final_time_fs, final_time_fs_ref, atol=1e-5
     ), f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026  # type: ignore
     assert np.isclose(
         final_energy, final_energy_ref, atol=1e-5
     ), f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
@@ -295,18 +295,18 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     assert (
         N_frames == N_frames_ref
     ), f"Trajectory length is {N_frames} instead of {N_frames_ref}"
-    last_atoms = traj[-1]
+    last_atoms = traj[-1]  # type: ignore
     # Ensure the timestep is saved and correct
     assert (
-        "time_fs" in last_atoms.info
-    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"
-    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
     assert np.isclose(
         final_time_fs, final_time_fs_ref, atol=1e-5
     ), f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126  # type: ignore
     assert np.isclose(
         final_energy, final_energy_ref, atol=1e-5
     ), f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
@@ -345,9 +345,14 @@ def test_format_model_error_with_metadata(monkeypatch):
 
     err = RuntimeError("fail")
     msg = format_model_error("test_model", {}, err)
-
     assert "Known parameter options for test_model" in msg
-    assert "- param1: [1, 2, 3]" in msg
+    assert """{
+    "param1": [
+        1,
+        2,
+        3
+    ]
+}""" in msg
 
 
 def test_format_model_error_no_metadata(monkeypatch):

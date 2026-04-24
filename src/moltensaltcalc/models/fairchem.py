@@ -6,18 +6,21 @@ from moltensaltcalc.registry import register_model
     metadata={
         "model_size": {
             "type": "str",
-            "choices": ["small", "medium"],
-            "description": "Size of the FairChem model. Size 'medium' is currently only supported for version '1p1'.",
+            "choices": ["s", "m"],
+            "description": "Size of the FairChem model. Size 'm' is currently (04.2026) only supported for version '1p1'.",
+            "default": "s",
         },
         "model_version": {
             "type": "str",
-            "choices": ["1p1", "1p2", "1 (for older version of fairchem-core)"],
+            "choices": ["1p1", "1p2", "1 (for older versions of fairchem-core)"],
             "description": "Version of the pretrained model.",
+            "default": "1p2",
         },
         "model_task": {
             "type": "str",
             "choices": ["omc", "omol", "odac", "oc20", "omat"],
             "description": "Task the model is trained for.",
+            "default": "omat",
         },
         "InferenceSettings": {
             "type": "fairchem.core.units.mlip_unit.api.inference.InferenceSettings",
@@ -44,24 +47,17 @@ def build_fairchem(params, device):
     )
     settings = params.get("InferenceSettings", turbo_settings)
 
-    size = params.get("model_size", None)
-
     # Fairchem resets the random seeds after loading the model, so we need to keep it
-    rng_seed_before = int(np.random.get_state()[1][0])
-    if size == "small":
-        predictor = pretrained_mlip.get_predict_unit(
-            f"uma-s-{params.get('model_version', None)}",
-            device=device,
-            inference_settings=settings,
-        )
-    elif size == "medium":
-        predictor = pretrained_mlip.get_predict_unit("uma-m-1p1", device=device)
-    else:
-        raise ValueError(f"Invalid FAIRCHEM model_size: {size}")
+    rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
+    predictor = pretrained_mlip.get_predict_unit(
+        f"uma-{params.get("model_size", "s").lower()}-{params.get('model_version', '1p2').lower()}",
+        device=device,
+        inference_settings=settings,
+    )
     np.random.seed(rng_seed_before)
     random.seed(rng_seed_before)
 
     return FAIRChemCalculator(
         predictor,
-        task_name=params.get("model_task", None),
+        task_name=params.get("model_task", "omat").lower(),
     )

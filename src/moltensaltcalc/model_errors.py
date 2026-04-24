@@ -1,3 +1,5 @@
+import json
+
 from moltensaltcalc.registry import MODEL_METADATA
 
 
@@ -44,7 +46,6 @@ Error message: {error}
 
     if metadata:
         msg += f"\n\nKnown parameter options for {model_name} (if applicable):\n"
-        for key, values in metadata.items():
-            msg += f"  - {key}: {values}\n"
+        msg += json.dumps(metadata, indent=4)
 
     return msg

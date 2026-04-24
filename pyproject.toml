@@ -7,7 +7,7 @@ name = "moltensaltcalc"
 version = "0.1.1"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 dynamic = []
 
 authors = [
@@ -26,6 +26,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Chemistry",
@@ -36,9 +38,10 @@ classifiers = [
 
 # Core dependencies
 dependencies = [
-    "numpy>=1.26,<3.0",
     "ase>=3.22,<4.0",
+    "numpy>=1.26,<3.0",
     "scipy>=1.10,<2.0",
+    "myplots>=0.1.1",
 ]
 
 # Optional dependencies (for MLIPs)
@@ -46,13 +49,21 @@ dependencies = [
 grace = ["tensorpotential"]
 fairchem = ["fairchem-core>=2.3,<3.0"]
 mace = ["mace-torch"]
+mattersim = ["mattersim"]
+7net = ["sevenn"]
+nequip = ["nequip"]
+nequix = ["nequix"]
+upet = ["upet"]
+chgnet = ["chgnet"]
 
 dev = [
-    "pytest",
-    "pytest-cov",
-    "pre-commit",
     "black",
     "isort",
+    "nox",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "uv",
 ]
 
 docs = [
@@ -74,6 +85,7 @@ testpaths = ["tests"]
 addopts = "-ra -q --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "umlip: marks tests as requiring a uMLIP backend to be installed (run with 'nox -s' or 'nox -s \"umlip(model='model_name')\"'). These tests are skipped by default as they require different environments.",
 ]
 
 

@@ -8,16 +8,19 @@ from moltensaltcalc.registry import register_model
             "type": "str",
             "choices": ["small", "medium", "large"],
             "description": "Size of the GRACE model.",
+            "default": "small",
         },
         "num_layers": {
             "type": "int",
             "choices": [1, 2],
             "description": "Number of message-passing layers.",
+            "default": 1,
         },
         "model_task": {
             "type": "str",
-            "choices": ["OAM", "OMAT"],
+            "choices": ["oam", "omat"],
             "description": "Task the model is trained for.",
+            "default": "omat",
         },
     },
 )
@@ -27,25 +30,30 @@ def build_grace(params, device):
         grace_fm,
     )
 
-    size = params.get("model_size", None)
-    layers = params.get("num_layers", None)
-    task = params.get("model_task", None)
+    size = params.get("model_size", "small").lower()
+    layers = params.get("num_layers", 1)
+    task = params.get("model_task", "omat").lower()
 
     mapping = {
-        ("OMAT", "small", 1): GRACEModels.GRACE_1L_OMAT,
-        ("OMAT", "small", 2): GRACEModels.GRACE_2L_OMAT,
-        ("OMAT", "medium", 1): GRACEModels.GRACE_1L_OMAT_medium_base,
-        ("OMAT", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_base,
-        ("OMAT", "large", 1): GRACEModels.GRACE_1L_OMAT_large_base,
-        ("OMAT", "large", 2): GRACEModels.GRACE_2L_OMAT_large_base,
-        ("OAM", "small", 1): GRACEModels.GRACE_1L_OAM,
-        ("OAM", "small", 2): GRACEModels.GRACE_2L_OAM,
-        ("OAM", "medium", 1): GRACEModels.GRACE_1L_OMAT_medium_ft_AM,
-        ("OAM", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_ft_AM,
-        ("OAM", "large", 1): GRACEModels.GRACE_1L_OMAT_large_ft_AM,
-        ("OAM", "large", 2): GRACEModels.GRACE_2L_OMAT_large_ft_AM,
+        ("omat", "small", 1): GRACEModels.GRACE_1L_OMAT,  # type: ignore
+        ("omat", "small", 2): GRACEModels.GRACE_2L_OMAT,  # type: ignore
+        ("omat", "medium", 1): GRACEModels.GRACE_1L_OMAT_medium_base,  # type: ignore
+        ("omat", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_base,  # type: ignore
+        ("omat", "large", 1): GRACEModels.GRACE_1L_OMAT_large_base,  # type: ignore
+        ("omat", "large", 2): GRACEModels.GRACE_2L_OMAT_large_base,  # type: ignore
+        ("oam", "small", 1): GRACEModels.GRACE_1L_OAM,  # type: ignore
+        ("oam", "small", 2): GRACEModels.GRACE_2L_OAM,  # type: ignore
+        ("oam", "medium", 1): GRACEModels.GRACE_1L_OMAT_medium_ft_AM,  # type: ignore
+        ("oam", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_ft_AM,  # type: ignore
+        ("oam", "large", 1): GRACEModels.GRACE_1L_OMAT_large_ft_AM,  # type: ignore
+        ("oam", "large", 2): GRACEModels.GRACE_2L_OMAT_large_ft_AM,  # type: ignore
     }
+    try:
+        model = mapping[(task, size, layers)]
+    except KeyError:
+        raise ValueError(
+            f"Unknown model parameters: {params}. "
+            f"Known parameters: {list(mapping.keys())}"
+        )
 
-    model = mapping[(task, size, layers)]
-
-    return grace_fm(model)
+    return grace_fm(model, device=device)

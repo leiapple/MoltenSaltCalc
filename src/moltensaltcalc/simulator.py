@@ -114,10 +114,12 @@ class MoltenSaltSimulator:
         except ValueError as e:
             # Parameter error
             raise ValueError(format_model_error(model_name, model_parameters, e)) from e
-        except AssertionError as e:
+        except Exception as e:
             # Most likely CUDA not available => fallback to CPU
             if not "cuda" in str(e).lower() and self.device.lower() == "cuda":
-                raise e
+                raise ValueError(
+                    format_model_error(model_name, model_parameters, e)
+                ) from e
             warnings.warn(f"CUDA not available, falling back to CPU.")
             calc = MODEL_REGISTRY[model_name](model_parameters, device="cpu")
 
@@ -343,7 +345,9 @@ class MoltenSaltSimulator:
         )
         # Write the initial atoms to the trajectory file with the time set to 0 fs
         atoms.info.update({"time_fs": 0.0})
-        trajectory_npt = Trajectory(traj_file, "w", atoms)
+        trajectory_npt = Trajectory(
+            traj_file, "w", atoms, properties=["energy", "forces", "stress"]
+        )
         # Attach the trajectory writer and time updater to the dynamics simulation
         dyn.attach(
             lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
@@ -408,7 +412,9 @@ class MoltenSaltSimulator:
 
         # Write the initial atoms to the trajectory file
         atoms.info.update({"time_fs": 0.0})
-        trajectory_nvt = Trajectory(traj_file, "w", atoms)
+        trajectory_nvt = Trajectory(
+            traj_file, "w", atoms, properties=["energy", "forces", "stress"]
+        )
 
         # Attach the trajectory writer and time updater to the dynamics simulation
         dyn.attach(
