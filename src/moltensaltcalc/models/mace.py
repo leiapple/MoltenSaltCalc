@@ -24,7 +24,7 @@ from moltensaltcalc.registry import register_model
                 "default",
             ],
             "description": "Task head used by the model (depend on the provided model file, see https://github.com/acesuit/mace#pretrained-foundation-models).",
-            "default": "default",
+            "default": "omat_pbe",
         },
     },
 )

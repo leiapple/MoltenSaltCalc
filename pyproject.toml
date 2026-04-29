@@ -48,7 +48,7 @@ dependencies = [
 [project.optional-dependencies]
 grace = ["tensorpotential"]
 fairchem = ["fairchem-core>=2.3,<3.0"]
-mace = ["mace-torch"]
+mace = ["mace-torch","cuequivariance","cuequivariance-torch"]
 mattersim = ["mattersim"]
 7net = ["sevenn"]
 nequip = ["nequip"]

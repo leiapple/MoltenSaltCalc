@@ -3,6 +3,7 @@
 import importlib
 import os
 import warnings
+from pathlib import Path
 
 import numpy as np
 from ase import Atoms, units
@@ -32,14 +33,14 @@ class MoltenSaltSimulator:
     def __init__(
         self,
         model_name: str,
-        model_parameters: dict,
+        model_parameters: dict | None = None,
         device: str = "cuda",
     ):
         """Initialize the simulator with a specific ML potential.
 
         Args:
             model_name (str): Which MLIP to use.
-            model_parameters (dict): Parameters for the MLIP.
+            model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
         """
         self.device = device
@@ -116,12 +117,12 @@ class MoltenSaltSimulator:
 
         self.calc = calc
 
-    def create_simulation_folder(self, base_name: str = "simulation") -> tuple[str, str]:
+    def create_simulation_folder(self, base_name: Path | str = "simulation") -> tuple[str, str]:
         """Create a folder structure for simulation outputs.
 
 
         Args:
-            base_name (str, optional): Name of the base folder to be created in the current working directory. Defaults to "simulation".
+            base_name (Path | str, optional): Name of the base folder to be created in the current working directory. Defaults to "simulation".
 
         Returns:
             Tuple[str, str]: Tuple of the folders where the NPT and NVT trajectories will be stored.
@@ -283,9 +284,9 @@ class MoltenSaltSimulator:
         pressure_bar: float = 1.01325,
         print_interval: int = 100,
         write_interval: int = 10,
-        traj_file: str = "npt_simulation.traj",
+        traj_file: str | Path = "npt_simulation.traj",
         print_status: bool = True,
-        logfile: str = "npt_run.log",
+        logfile: str | Path = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
 
@@ -300,9 +301,9 @@ class MoltenSaltSimulator:
             pressure_bar (float, optional): Pressure in bar. Defaults to 1.01325.
             print_interval (int, optional): Interval for printing status. Defaults to 100.
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
-            traj_file (str, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
+            traj_file (str | Path, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_run.log".
+            logfile (str | Path, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_run.log".
 
         Returns:
             Atoms: ASE atoms object of the equilibrated system
@@ -356,9 +357,9 @@ class MoltenSaltSimulator:
         tdamp_fs: float = 100.0,
         print_interval: int = 100,
         write_interval: int = 10,
-        traj_file: str = "nvt_simulation.traj",
+        traj_file: str | Path = "nvt_simulation.traj",
         print_status: bool = True,
-        logfile: str = "nvt_run.log",
+        logfile: str | Path = "nvt_run.log",
     ):
         """Run NVT (constant particles, volume, temperature) molecular dynamics simulation.
 
@@ -370,9 +371,9 @@ class MoltenSaltSimulator:
             tdamp_fs (float, optional): Characteristic time scale for thermostat in fs, typically 100*timestep_fs. Defaults to 100.0.
             print_interval (int, optional): Interval for printing status. Defaults to 100.
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
-            traj_file (str, optional): Output trajectory file path. Defaults to "nvt_simulation.traj".
+            traj_file (str | Path, optional): Output trajectory file path. Defaults to "nvt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str, optional): Logfile for the NoseHooverChainNVT dynamics simulation, "-" for stdout. Defaults to "nvt_run.log".
+            logfile (str | Path, optional): Logfile for the NoseHooverChainNVT dynamics simulation, "-" for stdout. Defaults to "nvt_run.log".
         """
 
         # Set up the atomic momenta at the given temperature and remove center of mass motion
