@@ -1,3 +1,7 @@
+"""Formatting of error messages for unknown models."""
+
+import json
+
 from moltensaltcalc.registry import MODEL_METADATA
 
 
@@ -11,10 +15,7 @@ def format_unknown_model_error(model_name: str, discoverable_models: list[str]) 
     Returns:
         str: Formatted error message.
     """
-    if discoverable_models:
-        models_str = "\n- '" + "'\n- '".join(discoverable_models) + "'"
-    else:
-        models_str = "\n  (none found)"
+    models_str = "\n- '" + "'\n- '".join(discoverable_models) + "'" if discoverable_models else "\n  (none found)"
 
     return f"Unknown model '{model_name}'.\n\n\nAvailable models:{models_str}"
 
@@ -44,7 +45,6 @@ Error message: {error}
 
     if metadata:
         msg += f"\n\nKnown parameter options for {model_name} (if applicable):\n"
-        for key, values in metadata.items():
-            msg += f"  - {key}: {values}\n"
+        msg += json.dumps(metadata, indent=4)
 
     return msg

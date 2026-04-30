@@ -5,8 +5,9 @@ Main entry points:
 - MoltenSaltSimulator: Build systems and run molecular dynamics simulations
 - MoltenSaltAnalyzer: Analyze trajectories and calculate properties
 
-The package supports multiple MLIP foundation models (GRACE, MACE, FAIRCHEM) with lazy loading to minimize dependencies and startup time.
+The package supports multiple MLIP foundation models with lazy loading to minimize dependencies and startup time.
 """
+# pylint: disable=duplicate-code
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version

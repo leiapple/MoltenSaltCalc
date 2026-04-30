@@ -1,3 +1,7 @@
+"""Tests for the MoltenSaltSimulator class."""
+
+# pylint: disable=protected-access
+# pylint: disable=redefined-outer-name
 import os
 import re
 
@@ -12,10 +16,11 @@ from moltensaltcalc.simulator import (
     format_unknown_model_error,
 )
 
-rng_seed = 42
+RNG_SEED = 42
 
 
 def parse_md_print_line(line: str):
+    """Extract the relevant properties T, P and V from the MD output line."""
     pattern = (
         r"(?P<step>\d+)\s*\|\s*"
         r"T\s*=\s*(?P<T>[0-9.eE+-]+)\s*K\s*\|\s*"
@@ -67,13 +72,24 @@ def simple_salt():
 
 
 def test_available_models():
+    """Test that the available models are returned."""
     models = msc.available_models()
     assert isinstance(models, list)
-    assert "grace" in models and "fairchem" in models and "mace" in models
+    assert (
+        "grace" in models
+        and "fairchem" in models
+        and "mace" in models
+        and "7net" in models
+        and "nequip" in models
+        and "nequix" in models
+        and "upet" in models
+        and "chgnet" in models
+    )
 
 
 def test_build_system_random(simulator, simple_salt):
-    np.random.seed(rng_seed)
+    """Test that with a rng seed always the same random system is built."""
+    np.random.seed(RNG_SEED)
     atoms = simulator.build_system(
         simple_salt["anions"],
         simple_salt["cations"],
@@ -83,26 +99,21 @@ def test_build_system_random(simulator, simple_salt):
         lattice="random",
     )
 
-    N_tot, N_tot_ref = len(atoms), 40
-    assert (
-        N_tot == N_tot_ref
-    ), f"Random build system number of atoms is {N_tot} instead of {N_tot_ref}"
-    N_Na, N_Na_ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
-    assert (
-        N_Na == N_Na_ref
-    ), f"Random build system number of Na atoms is {N_Na} instead of {N_Na_ref}"
+    n_tot, n_tot_ref = len(atoms), 40
+    assert n_tot == n_tot_ref, f"Random build system number of atoms is {n_tot} instead of {n_tot_ref}"
+    n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
+    assert n_cat == ref, f"Random build system number of Na atoms is {n_cat} instead of {ref}"
     x_0, x_0_ref = atoms.get_positions()[0][0], 4.350641283744996
-    assert np.isclose(
-        x_0, x_0_ref, atol=1e-5
-    ), f"Random build system first atom x-coordinate is {x_0:.5f} instead of {x_0_ref:.5f}"
+    assert np.isclose(x_0, x_0_ref, atol=1e-5), (
+        f"Random build system first atom x-coordinate is {x_0:.5f} instead of {x_0_ref:.5f}"
+    )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(
-        vol, vol_ref, atol=1e-5
-    ), f"Random build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-5), f"Random build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 def test_build_system_rocksalt(simulator, simple_salt):
-    np.random.seed(rng_seed)
+    """Test that the rocksalt lattice without random removal is built correctly."""
+    np.random.seed(RNG_SEED)
     atoms = simulator.build_system(
         simple_salt["anions"],
         simple_salt["cations"],
@@ -111,26 +122,21 @@ def test_build_system_rocksalt(simulator, simple_salt):
         simple_salt["density"],
         lattice="rocksalt",
     )
-    N_tot, N_tot_ref = len(atoms), 40
-    assert (
-        N_tot == N_tot_ref
-    ), f"Rocksalt build system number of atoms is {N_tot} instead of {N_tot_ref}"
-    N_Na, N_Na_ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
-    assert (
-        N_Na == N_Na_ref
-    ), f"Rocksalt build system number of Na atoms is {N_Na} instead of {N_Na_ref}"
+    n_tot, n_tot_ref = len(atoms), 40
+    assert n_tot == n_tot_ref, f"Rocksalt build system number of atoms is {n_tot} instead of {n_tot_ref}"
+    n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
+    assert n_cat == ref, f"Rocksalt build system number of Na atoms is {n_cat} instead of {ref}"
     x_2, x_2_ref = atoms.get_positions()[1][0], 2.5550218342426883
-    assert np.isclose(
-        x_2, x_2_ref, atol=1e-5
-    ), f"Rocksalt build system second atom x-coordinate is {x_2:.5f} instead of {x_2_ref:.5f}"
+    assert np.isclose(x_2, x_2_ref, atol=1e-5), (
+        f"Rocksalt build system second atom x-coordinate is {x_2:.5f} instead of {x_2_ref:.5f}"
+    )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(
-        vol, vol_ref, atol=1e-5
-    ), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-5), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 def test_build_system_rocksalt_random_removal(simulator, simple_salt):
-    np.random.seed(rng_seed)
+    """Test that the rocksalt lattice with random removal is built correctly."""
+    np.random.seed(RNG_SEED)
     atoms = simulator.build_system(
         simple_salt["anions"],
         simple_salt["cations"],
@@ -141,22 +147,16 @@ def test_build_system_rocksalt_random_removal(simulator, simple_salt):
         random_removal=True,
     )
 
-    N_tot, N_tot_ref = len(atoms), 40
-    assert (
-        N_tot == N_tot_ref
-    ), f"Rocksalt build system random removal number of atoms is {N_tot} instead of {N_tot_ref}"
-    N_Na, N_Na_ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
-    assert (
-        N_Na == N_Na_ref
-    ), f"Rocksalt build system random removal number of Na atoms is {N_Na} instead of {N_Na_ref}"
+    n_tot, n_tot_ref = len(atoms), 40
+    assert n_tot == n_tot_ref, f"Rocksalt build system random removal number of atoms is {n_tot} instead of {n_tot_ref}"
+    n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
+    assert n_cat == ref, f"Rocksalt build system random removal number of Na atoms is {n_cat} instead of {ref}"
     x_6, x_6_ref = atoms.get_positions()[6][0], 7.66507
-    assert np.isclose(
-        x_6, x_6_ref, atol=1e-5
-    ), f"Rocksalt build system second atom x-coordinate is {x_6:.5f} instead of {x_6_ref:.5f}"
+    assert np.isclose(x_6, x_6_ref, atol=1e-5), (
+        f"Rocksalt build system second atom x-coordinate is {x_6:.5f} instead of {x_6_ref:.5f}"
+    )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(
-        vol, vol_ref, atol=1e-5
-    ), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-5), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 # =========================================================
@@ -165,6 +165,7 @@ def test_build_system_rocksalt_random_removal(simulator, simple_salt):
 
 
 def test_create_simulation_folder(simulator, tmp_path):
+    """Test that the simulation folders are created."""
     npt_dir, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
 
     assert os.path.exists(npt_dir)
@@ -177,8 +178,9 @@ def test_create_simulation_folder(simulator, tmp_path):
 
 
 @pytest.mark.slow
-def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
-    np.random.seed(rng_seed)
+def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
+    """End to end test for a short MD simulation."""
+    np.random.seed(RNG_SEED)
 
     npt_dir, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
 
@@ -200,64 +202,59 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     atoms = simulator.run_npt_simulation(
         atoms,
         T=T,
+        npt_dyn="nptberendsen",
         steps=5,
         print_interval=1,
         write_interval=1,
         traj_file=str(traj_file_npt),
         logfile=str(log_file_npt),
         timestep_fs=10.0,
+        compressibility_per_bar=4e-5,
     )
 
     captured = capsys.readouterr()
-    npt_lines = [
-        l for l in captured.out.splitlines() if "|" in l and "T =" in l and "P =" in l
-    ]
+    npt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
 
     # Assertions for the NPT run
     assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_npt = parse_md_print_line(npt_lines[-1])
-    # Expected: Step      5 | T = 2603.327386 K | P = 1.736778e-02 bar | V =   997.55 Å³
-    final_T, final_T_ref = last_npt["T"], 2603.327386
-    assert np.isclose(
-        final_T, final_T_ref, atol=1e-1
-    ), f"NPT final T = {final_T:.1f} instead of expected {final_T_ref:.1f}"
-    final_P, final_P_ref = last_npt["P"], 1.736778e-02
-    assert np.isclose(
-        final_P, final_P_ref, atol=1e-5
-    ), f"NPT final P = {final_P:.5f} instead of expected {final_P_ref:.5f}"
-    final_V, final_V_ref = last_npt["V"], 997.55
-    assert np.isclose(
-        final_V, final_V_ref, atol=1e-1
-    ), f"NPT final V = {final_V:.1f} instead of expected {final_V_ref:.1f}"
+    # Expected: Step      5 | T =  2572.323986 K | P = 0.01811723 bar | V =   997.8 Å³
+    final_temp, ref = last_npt["T"], 2572.323986
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_npt["P"], 1.811723e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_npt["V"], 997.8
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_npt)
 
     traj = Trajectory(traj_file_npt)
-    N_frames, N_frames_ref = len(traj), 6
-    assert (
-        N_frames == N_frames_ref
-    ), f"NPT Trajectory length is {N_frames} instead of {N_frames_ref}"
-    last_atoms = traj[-1]
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"NPT Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
     # Ensure the timestep is saved and correct
     assert (
-        "time_fs" in last_atoms.info
-    ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"
-    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0
-    assert np.isclose(
-        final_time_fs, final_time_fs_ref, atol=1e-5
-    ), f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -119.87897281091125
-    assert np.isclose(
-        final_energy, final_energy_ref, atol=1e-5
-    ), f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
 
     atoms = simulator.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
+        nvt_dyn="nosehoover",
         print_interval=1,
         write_interval=1,
         traj_file=str(traj_file_nvt),
@@ -266,50 +263,306 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
     )
 
     captured = capsys.readouterr()
-    nvt_lines = [
-        l for l in captured.out.splitlines() if "|" in l and "T =" in l and "P =" in l
-    ]
+    nvt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
 
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_nvt = parse_md_print_line(nvt_lines[-1])
-    # Expected: 5 | T = 1691.756416 K | P = 1.149296e-02 bar | V =   997.55 Å³
-    final_T, final_T_ref = last_nvt["T"], 1691.756416
-    assert np.isclose(
-        final_T, final_T_ref, atol=1e-1
-    ), f"NVT final T = {final_T:.1f} instead of expected {final_T_ref:.1f}"
-    final_P, final_P_ref = last_nvt["P"], 1.149296e-02
-    assert np.isclose(
-        final_P, final_P_ref, atol=1e-5
-    ), f"NVT final P = {final_P:.5f} instead of expected {final_P_ref:.5f}"
-    final_V, final_V_ref = last_nvt["V"], 997.55
-    assert np.isclose(
-        final_V, final_V_ref, atol=1e-1
-    ), f"NVT final V = {final_V:.1f} instead of expected {final_V_ref:.1f}"
+    # Expected: 5 | T = 1586.091128 K | P = 0.01384603 bar | V =   997.8 Å³
+    final_temp, ref = last_nvt["T"], 1586.091128
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_nvt["P"], 1.384603e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_nvt["V"], 997.8
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_nvt)
 
     traj = Trajectory(traj_file_nvt)
-    N_frames, N_frames_ref = len(traj), 6
-    assert (
-        N_frames == N_frames_ref
-    ), f"Trajectory length is {N_frames} instead of {N_frames_ref}"
-    last_atoms = traj[-1]
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
     # Ensure the timestep is saved and correct
     assert (
-        "time_fs" in last_atoms.info
-    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"
-    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0
-    assert np.isclose(
-        final_time_fs, final_time_fs_ref, atol=1e-5
-    ), f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.93872350976946
-    assert np.isclose(
-        final_energy, final_energy_ref, atol=1e-5
-    ), f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
+
+
+@pytest.mark.slow
+def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
+    """End to end test for a short MD simulation."""
+    np.random.seed(RNG_SEED)
+
+    npt_dir, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
+
+    atoms = simulator.build_system(
+        simple_salt["anions"],
+        simple_salt["cations"],
+        simple_salt["n_anions"],
+        simple_salt["n_cations"],
+        simple_salt["density"],
+        lattice="rocksalt",
+    )
+
+    T = 1200
+    traj_file_npt = os.path.join(npt_dir, "npt_simulation.traj")
+    traj_file_nvt = os.path.join(nvt_dir, "nvt_simulation.traj")
+    log_file_npt = os.path.join(npt_dir, "npt_run.log")
+    log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
+
+    atoms = simulator.run_npt_simulation(
+        atoms,
+        T=T,
+        npt_dyn="mtknpt",
+        steps=5,
+        print_interval=1,
+        write_interval=1,
+        traj_file=str(traj_file_npt),
+        logfile=str(log_file_npt),
+        timestep_fs=10.0,
+        compressibility_per_bar=4e-5,
+    )
+
+    captured = capsys.readouterr()
+    npt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
+
+    # Assertions for the NPT run
+    assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
+    last_npt = parse_md_print_line(npt_lines[-1])
+    # Expected: Step      5 | T = 2669.395626 K | P = 2.677592e-02 bar | V =   929.91 Å³
+    final_temp, ref = last_npt["T"], 2669.395626
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_npt["P"], 2.677592e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_npt["V"], 929.91
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+
+    # Ensure the trajectory file exists and is readable
+    assert os.path.exists(traj_file_npt)
+
+    traj = Trajectory(traj_file_npt)
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"NPT Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
+    # Ensure the timestep is saved and correct
+    assert (
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
+
+    # Ensure the energy is correct
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -118.69740  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
+
+    atoms = simulator.run_nvt_simulation(
+        atoms,
+        T=T,
+        steps=5,
+        nvt_dyn="langevin",
+        print_interval=1,
+        write_interval=1,
+        traj_file=str(traj_file_nvt),
+        logfile=str(log_file_nvt),
+        timestep_fs=10.0,
+    )
+
+    captured = capsys.readouterr()
+    nvt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
+    last_nvt = parse_md_print_line(nvt_lines[-1])
+
+    # Assertions for the NVT run
+    assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
+    # Expected: Step      5 | T = 1673.896908 K | P = 2.568478e-02 bar | V =   929.91 Å³
+    final_temp, ref = last_nvt["T"], 1673.896908
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_nvt["P"], 2.568478e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_nvt["V"], 929.91
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+
+    # Ensure the trajectory file exists and is readable
+    assert os.path.exists(traj_file_nvt)
+
+    traj = Trajectory(traj_file_nvt)
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
+    # Ensure the timestep is saved and correct
+    assert (
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
+
+    # Ensure the energy is correct
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -125.88989  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
+
+
+def test_md_bussi(simulator, simple_salt, capsys, tmp_path):
+    """End to end test for a short MD simulation."""
+    np.random.seed(RNG_SEED)
+
+    _, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
+
+    atoms = simulator.build_system(
+        simple_salt["anions"],
+        simple_salt["cations"],
+        simple_salt["n_anions"],
+        simple_salt["n_cations"],
+        simple_salt["density"],
+        lattice="rocksalt",
+    )
+
+    T = 1200
+    traj_file_nvt = os.path.join(nvt_dir, "nvt_simulation.traj")
+    log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
+
+    atoms = simulator.run_nvt_simulation(
+        atoms,
+        T=T,
+        steps=5,
+        nvt_dyn="bussi",
+        print_interval=1,
+        write_interval=1,
+        traj_file=str(traj_file_nvt),
+        logfile=str(log_file_nvt),
+        timestep_fs=10.0,
+    )
+
+    captured = capsys.readouterr()
+    nvt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
+    last_nvt = parse_md_print_line(nvt_lines[-1])
+
+    # Assertions for the NVT run
+    assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
+
+    # Expected: Step      5 | T = 2762.758924 K | P = 3.367088e-02 bar | V =   900.69 Å³
+    final_temp, ref = last_nvt["T"], 2762.758924
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_nvt["P"], 3.367088e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_nvt["V"], 900.69
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+
+    # Ensure the trajectory file exists and is readable
+    assert os.path.exists(traj_file_nvt)
+
+    traj = Trajectory(traj_file_nvt)
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
+    # Ensure the timestep is saved and correct
+    assert (
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
+
+    # Ensure the energy is correct
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -117.75769  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
+
+
+def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
+    """End to end test for a short MD simulation."""
+    np.random.seed(RNG_SEED)
+
+    _, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
+
+    atoms = simulator.build_system(
+        simple_salt["anions"],
+        simple_salt["cations"],
+        simple_salt["n_anions"],
+        simple_salt["n_cations"],
+        simple_salt["density"],
+        lattice="rocksalt",
+    )
+
+    T = 1200
+    traj_file_nvt = os.path.join(nvt_dir, "nvt_simulation.traj")
+    log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
+    atoms = simulator.run_nvt_simulation(
+        atoms,
+        T=T,
+        steps=5,
+        nvt_dyn="langevin",
+        print_interval=1,
+        write_interval=1,
+        traj_file=str(traj_file_nvt),
+        logfile=str(log_file_nvt),
+        timestep_fs=10.0,
+    )
+
+    captured = capsys.readouterr()
+    nvt_lines = [line for line in captured.out.splitlines() if "|" in line and "T =" in line and "P =" in line]
+    last_nvt = parse_md_print_line(nvt_lines[-1])
+
+    # Assertions for the NVT run
+    assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
+    # Expected: Step      5 | T = 2874.498514 K | P = 3.249951e-02 bar | V =   900.69 Å³
+    final_temp, ref = last_nvt["T"], 2874.498514
+    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    final_p, final_p_ref = last_nvt["P"], 3.249951e-02
+    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+        f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
+    )
+    final_vol, ref = last_nvt["V"], 900.69
+    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+
+    # Ensure the trajectory file exists and is readable
+    assert os.path.exists(traj_file_nvt)
+
+    traj = Trajectory(traj_file_nvt)
+    n_frames, n_frames_ref = len(traj), 6
+    assert n_frames == n_frames_ref, f"Trajectory length is {n_frames} instead of {n_frames_ref}"
+    last_atoms = traj[-1]  # type: ignore
+    # Ensure the timestep is saved and correct
+    assert (
+        "time_fs" in last_atoms.info  # type: ignore
+    ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
+    final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+        f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
+    )
+
+    # Ensure the energy is correct
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -118.85734  # type: ignore
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+        f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
+    )
 
 
 # =========================================================
@@ -318,6 +571,7 @@ def test_short_md_run(simulator, simple_salt, capsys, tmp_path):
 
 
 def test_invalid_model():
+    """Test that the error raised when an invalid model is specified."""
     with pytest.raises(ValueError) as exc:
         msc.MoltenSaltSimulator(model_name="gace", model_parameters={})
 
@@ -325,6 +579,7 @@ def test_invalid_model():
 
 
 def test_format_unknown_model_error_basic():
+    """Test the model error formatting function."""
     msg = format_unknown_model_error("foo", ["bar", "baz"])
 
     assert "Unknown model 'foo'" in msg
@@ -334,6 +589,7 @@ def test_format_unknown_model_error_basic():
 
 
 def test_format_unknown_model_error_empty():
+    """Test the unknown model error formatting function."""
     msg = format_unknown_model_error("foo", [])
 
     assert "Unknown model 'foo'" in msg
@@ -341,16 +597,26 @@ def test_format_unknown_model_error_empty():
 
 
 def test_format_model_error_with_metadata(monkeypatch):
+    """Test the unknown model parameters error formatting function."""
     monkeypatch.setitem(MODEL_METADATA, "test_model", {"param1": [1, 2, 3]})
 
     err = RuntimeError("fail")
     msg = format_model_error("test_model", {}, err)
-
     assert "Known parameter options for test_model" in msg
-    assert "- param1: [1, 2, 3]" in msg
+    assert (
+        """{
+    "param1": [
+        1,
+        2,
+        3
+    ]
+}"""
+        in msg
+    )
 
 
 def test_format_model_error_no_metadata(monkeypatch):
+    """Test the model error formatting function."""
     monkeypatch.setitem(MODEL_METADATA, "empty_model", {})
 
     err = RuntimeError("fail")
@@ -361,6 +627,7 @@ def test_format_model_error_no_metadata(monkeypatch):
 
 
 def test_build_system_invalid_lengths(simulator):
+    """Test that the error raised when the number of atoms and the number of anions and cations are not equal."""
     with pytest.raises(ValueError):
         simulator.build_system(
             ["Cl"],
@@ -372,6 +639,7 @@ def test_build_system_invalid_lengths(simulator):
 
 
 def test_build_system_unsupported_lattice(simulator):
+    """Test that the error raised when an unsupported lattice is specified."""
     with pytest.raises(ValueError) as e:
         simulator.build_system(
             ["Cl"],
@@ -386,6 +654,7 @@ def test_build_system_unsupported_lattice(simulator):
 
 @pytest.mark.slow
 def test_build_system_invalid_density(simulator):
+    """Test the runtime error upon building a random system with unreachable constraints."""
     with pytest.raises(RuntimeError) as e:
         simulator.build_system(
             ["Cl"],

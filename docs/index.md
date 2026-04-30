@@ -45,8 +45,8 @@ sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "s
 atoms = sim.build_system(
     salt_anion=["F", "Cl"],
     salt_cation=["Na"],
-    anion_Natoms=[10, 5],  # 7 F atoms and 5 Cl atoms
-    cation_Natoms=[15],  # 15 Na atoms
+    n_anions=[10, 5],  # 7 F atoms and 5 Cl atoms
+    n_cations=[15],  # 15 Na atoms
     density_guess=2.0,  # g/cm³
 )
 sim.run_npt_simulation(
