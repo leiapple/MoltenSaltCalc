@@ -116,7 +116,6 @@ indent-style = "space"
 
 # Pylint config
 [tool.pylint.MAIN]
-# Formerly [MASTER]
 
 [tool.pylint.FORMAT]
 max-line-length = 500
@@ -142,8 +141,8 @@ good-names = [
 disable = ["import-outside-toplevel"]
 
 [tool.pylint.DESIGN]
-max-args = 15
-max-positional-arguments = 15
+max-positional-arguments = 20
+max-args = 20
 max-branches = 30
 max-locals = 35
 max-statements = 60

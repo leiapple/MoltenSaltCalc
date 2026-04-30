@@ -10,8 +10,15 @@ from ase import Atoms, units
 from ase.build import bulk
 from ase.data import atomic_masses, atomic_numbers
 from ase.io import Trajectory
-from ase.md.nose_hoover_chain import NoseHooverChainNVT
+from ase.md.andersen import Andersen
+from ase.md.bussi import Bussi
+from ase.md.langevin import Langevin
+
+# from ase.md.nose_hoover_chain import MaskedMTKNPT
+from ase.md.melchionna import MelchionnaNPT
+from ase.md.nose_hoover_chain import MTKNPT, NoseHooverChainNVT
 from ase.md.nptberendsen import NPTBerendsen
+from ase.md.nvtberendsen import NVTBerendsen
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
@@ -68,12 +75,12 @@ class MoltenSaltSimulator:
                 f"Model '{model_name}' could not be imported.\nThis may be due to missing dependencies.\nOriginal error: {repr(e)}"
             ) from e
 
-    def _set_calculator(self, model_name: str, model_parameters: dict):
+    def _set_calculator(self, model_name: str, model_parameters: dict | None):
         """Sets the uMLIP calculator for the energy and forces prediction.
 
         Args:
             model_name (str): Name of the model.
-            model_parameters (dict): Parameters to be passed to the model.
+            model_parameters (dict | None): Parameters to be passed to the model.
 
         Raises:
             ValueError: If the model name provided is not available.
@@ -272,38 +279,130 @@ class MoltenSaltSimulator:
             f"Step {step:6d} | T = {atoms.get_temperature():0f} K | P = {pressure:.6e} bar | V = {atoms.get_volume():8.2f} Å³"
         )
 
+    def _select_npt_dynamics(
+        self,
+        npt_dyn: str,
+        atoms: Atoms,
+        timestep_fs: float,
+        T: float,
+        taut_fs: float,
+        taup_fs: float,
+        pressure_bar: float,
+        compressibility_per_bar: float,
+        tchain: int,
+        pchain: int,
+        tloop: int,
+        ploop: int,
+        print_interval: int,
+        logfile: str | Path | None,
+    ) -> NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT:
+        """_summary_
+
+        Args:
+            npt_dyn (str): NPT dynamics to use. Choices: "nptberendsen", "mtknpt", "melchionna".
+            atoms (Atoms): System to simulate
+            T (float): Temperature in K.
+            timestep_fs (float): Time step dt for the simulation in fs.
+            taut_fs (float): Time constant for the NPT temperature coupling in fs.
+            taup_fs (float): Time constant for the NPT pressure coupling in fs.
+            pressure_bar (float): Pressure in bar.
+            compressibility_per_bar (float): Compressibility of the system per bar in 1/bar.
+            tchain (int): The number of thermostat variables in the Nose-Hoover thermostat. Only applies if npt_din is "mtknpt".
+            pchain (int): The number of barostat variables in the MTK barostat. Only applies if npt_din is "mtknpt".
+            tloop (int): The number of sub-steps in thermostat integration. Only applies if npt_din is "mtknpt".
+            ploop (int): The number of sub-steps in barostat integration. Only applies if npt_din is "mtknpt".
+            print_interval (int): Interval for printing status.
+            logfile (str | Path | None): Logfile for the NPT dynamics simulation, "-" for stdout, None for no logfile.
+
+        Raises:
+            ValueError: If the NPT specified with npt_dyn is not supported.
+
+        Returns:
+            NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT: _description_
+        """
+        if npt_dyn.lower() == "nptberendsen":
+            dyn = NPTBerendsen(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                taut=taut_fs * units.fs,
+                pressure_au=pressure_bar * units.bar,
+                taup=taup_fs * units.fs,
+                compressibility_au=compressibility_per_bar / units.bar,
+                logfile=str(logfile),
+                loginterval=print_interval,
+            )
+        # MelchionnaNPT can so far only operate on lists of atoms where the computational box is a triangular matrix
+        # elif npt_dyn.lower() == "melchionnanpt":
+        #     dyn = MelchionnaNPT(
+        #         atoms,
+        #         timestep=timestep_fs * units.fs,
+        #         temperature_K=T,
+        #         externalstress=pressure_bar * units.bar,
+        #         ttime=taut_fs * units.fs,
+        #         pfactor=(taup_fs * units.fs)**2 / compressibility_per_bar * units.bar,
+        #         trajectory=None,
+        #         logfile=str(logfile),
+        #     )
+        elif npt_dyn.lower() == "mtknpt":
+            dyn = MTKNPT(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                pressure_au=pressure_bar * units.bar,
+                tdamp=taut_fs * units.fs,
+                pdamp=taup_fs * units.fs,
+                tchain=tchain,
+                pchain=pchain,
+                tloop=tloop,
+                ploop=ploop,
+            )
+        else:
+            raise ValueError(f"Unsupported NPT dynamics: {npt_dyn}")
+        return dyn  # type: ignore
+
     def run_npt_simulation(
         self,
         atoms: Atoms,
         T: float | int,
+        npt_dyn: str = "nptberendsen",
         steps: int = 1000,
         timestep_fs: float = 1.0,
         taut_fs: float = 100.0,
         taup_fs: float = 1000.0,
-        compressibility_per_bar: float = 4.0e-5,
+        compressibility_per_bar: float = 5e-6,
         pressure_bar: float = 1.01325,
+        tchain: int = 3,
+        pchain: int = 3,
+        tloop: int = 1,
+        ploop: int = 1,
         print_interval: int = 100,
         write_interval: int = 10,
         traj_file: str | Path = "npt_simulation.traj",
         print_status: bool = True,
-        logfile: str | Path = "npt_run.log",
+        logfile: str | Path | None = "npt_run.log",
     ) -> Atoms:
         """Run NPT (constant particles, pressure, temperature) molecular dynamics simulation.
 
         Args:
-            atoms (Atoms): System to simulate
-            T (float | int): Temperature in K
+            atoms (Atoms): System to simulate.
+            T (float | int): Temperature in K.
+            npt_dyn (str, optional): NPT dynamics to use. Defaults to "nptberendsen". Choices: "nptberendsen", "mtknpt". Defaults to "nptberendsen".
             steps (int, optional): Number of MD steps. Defaults to 1000.
             timestep_fs (float, optional): Time step dt for the simulation in fs. Defaults to 1.0.
-            taut_fs (float, optional): Time constant for NPTBerendsen temperature coupling in fs. Defaults to 100.0.
-            taup_fs (float, optional): Time constant for NPTBerendsen pressure coupling in fs. Defaults to 1000.0.
-            compressibility_per_bar (float, optional): Compressibility of the system per bar in 1/bar. Defaults to 4.0e-5.
+            taut_fs (float, optional): Time constant for the NPT temperature coupling in fs. Defaults to 100.0.
+            taup_fs (float, optional): Time constant for the NPT pressure coupling in fs. Defaults to 1000.0.
+            compressibility_per_bar (float, optional): Compressibility of the system per bar in 1/bar. Defaults to 5e-6.
             pressure_bar (float, optional): Pressure in bar. Defaults to 1.01325.
+            tchain (int, optional): The number of thermostat variables in the Nose-Hoover thermostat. Only applies if npt_din is "mtknpt". Defaults to 3.
+            pchain (int, optional): The number of barostat variables in the MTK barostat. Only applies if npt_din is "mtknpt". Defaults to 3.
+            tloop (int, optional): The number of sub-steps in thermostat integration. Only applies if npt_din is "mtknpt". Defaults to 1.
+            ploop (int, optional): The number of sub-steps in barostat integration. Only applies if npt_din is "mtknpt". Defaults to 1.
             print_interval (int, optional): Interval for printing status. Defaults to 100.
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
             traj_file (str | Path, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str | Path, optional): Logfile for the NPTBerendsen dynamics simulation, "-" for stdout. Defaults to "npt_run.log".
+            logfile (str | Path | None, optional): Logfile for the NPT dynamics simulation, "-" for stdout, None for no logfile. Defaults to "npt_run.log".
 
         Returns:
             Atoms: ASE atoms object of the equilibrated system
@@ -315,17 +414,23 @@ class MoltenSaltSimulator:
         ZeroRotation(atoms)
 
         # Run the NPT dynamics simulation
-        dyn = NPTBerendsen(
+        dyn = self._select_npt_dynamics(
+            npt_dyn,
             atoms,
-            timestep=timestep_fs * units.fs,
-            temperature_K=T,
-            taut=taut_fs * units.fs,
-            pressure_au=pressure_bar * units.bar,
-            taup=taup_fs * units.fs,
-            compressibility_au=compressibility_per_bar / units.bar,
-            logfile=logfile,
-            loginterval=print_interval,
+            timestep_fs,
+            T,
+            taut_fs,
+            taup_fs,
+            pressure_bar,
+            compressibility_per_bar,
+            tchain,
+            pchain,
+            tloop,
+            ploop,
+            print_interval,
+            logfile,
         )
+
         # Write the initial atoms to the trajectory file with the time set to 0 fs
         atoms.info.update({"time_fs": 0.0})
         trajectory_npt = Trajectory(traj_file, "w", atoms, properties=["energy", "forces", "stress"])
@@ -348,10 +453,84 @@ class MoltenSaltSimulator:
 
         return atoms
 
+    def _select_nvt_dynamics(
+        self,
+        nvt_dyn: str,
+        atoms: Atoms,
+        T: float,
+        timestep_fs: float,
+        tdamp_fs: float,
+        print_interval: int,
+        logfile: str | Path | None,
+    ) -> NVTBerendsen | NoseHooverChainNVT | Langevin | Bussi | Andersen:
+        """_summary_
+
+        Args:
+            nvt_dyn (str): NVT dynamics to use. Choices: "nvtberendsen", "nosehoover", "langevin", "bussi", "andersen".
+            atoms (Atoms): System to simulate.
+            T (float): Temperature in K.
+            timestep_fs (float): Time step dt for the simulation in fs.
+            tdamp_fs (float): Characteristic time scale for thermostat in fs, typically 100*timestep_fs.
+            print_interval (int): Interval for printing status.
+            logfile (str | Path | None): Logfile for the NVT dynamics simulation, "-" for stdout, None for no logfile.
+
+        Raises:
+            ValueError: If the NVT dynamics specified with nvt_dyn is not supported.
+
+        Returns:
+            NVTBerendsen | NoseHooverChainNVT | Langevin | Bussi | Andersen: _description_
+        """
+        if nvt_dyn.lower() == "nvtberendsen":
+            dyn = NVTBerendsen(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                taut=tdamp_fs * units.fs,
+                logfile=str(logfile),
+            )
+        elif nvt_dyn.lower() == "nosehoover":
+            dyn = NoseHooverChainNVT(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                tdamp=tdamp_fs * units.fs,
+                logfile=logfile,
+                loginterval=print_interval,
+            )
+        elif nvt_dyn.lower() == "langevin":
+            dyn = Langevin(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                friction=1 / (tdamp_fs * units.fs),
+                logfile=logfile,
+            )
+        elif nvt_dyn.lower() == "bussi":
+            dyn = Bussi(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                taut=tdamp_fs * units.fs,
+                logfile=logfile,
+            )
+        elif nvt_dyn.lower() == "andersen":
+            dyn = Andersen(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                andersen_prob=1 / (tdamp_fs * units.fs),
+                logfile=logfile,
+            )
+        else:
+            raise ValueError(f"Unsupported NVT dynamics: {nvt_dyn}")
+
+        return dyn  # type: ignore
+
     def run_nvt_simulation(
         self,
         atoms: Atoms,
         T: float | int,
+        nvt_dyn: str = "nosehoover",
         steps: int = 1000,
         timestep_fs: float = 1.0,
         tdamp_fs: float = 100.0,
@@ -359,13 +538,14 @@ class MoltenSaltSimulator:
         write_interval: int = 10,
         traj_file: str | Path = "nvt_simulation.traj",
         print_status: bool = True,
-        logfile: str | Path = "nvt_run.log",
+        logfile: str | Path | None = "nvt_run.log",
     ):
         """Run NVT (constant particles, volume, temperature) molecular dynamics simulation.
 
         Args:
-            atoms (Atoms): System to simulate
-            T (float | int): Temperature in K
+            atoms (Atoms): System to simulate.
+            T (float | int): Temperature in K.
+            nvt_dyn (str, optional): NVT dynamics to use. Choices: "nvtberendsen", "nosehoover", "langevin", "bussi", "andersen". Defaults to "nosehoover".
             steps (int, optional): Number of MD steps. Defaults to 1000.
             timestep_fs (float, optional): Time step dt for the simulation in fs. Defaults to 1.0.
             tdamp_fs (float, optional): Characteristic time scale for thermostat in fs, typically 100*timestep_fs. Defaults to 100.0.
@@ -373,7 +553,7 @@ class MoltenSaltSimulator:
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
             traj_file (str | Path, optional): Output trajectory file path. Defaults to "nvt_simulation.traj".
             print_status (bool, optional): Whether to print simulation status. Defaults to True.
-            logfile (str | Path, optional): Logfile for the NoseHooverChainNVT dynamics simulation, "-" for stdout. Defaults to "nvt_run.log".
+            logfile (str | Path | None, optional): Logfile for the NoseHooverChainNVT dynamics simulation, "-" for stdout, None for no logfile. Defaults to "nvt_run.log".
         """
 
         # Set up the atomic momenta at the given temperature and remove center of mass motion
@@ -382,14 +562,7 @@ class MoltenSaltSimulator:
         ZeroRotation(atoms)
 
         # Setup the Nose-Hoover chain NVT dynamics simulation
-        dyn = NoseHooverChainNVT(
-            atoms,
-            timestep=timestep_fs * units.fs,
-            temperature_K=T,
-            tdamp=tdamp_fs * units.fs,
-            logfile=logfile,
-            loginterval=print_interval,
-        )
+        dyn = self._select_nvt_dynamics(nvt_dyn, atoms, T, timestep_fs, tdamp_fs, print_interval, logfile)
 
         # Write the initial atoms to the trajectory file
         atoms.info.update({"time_fs": 0.0})
