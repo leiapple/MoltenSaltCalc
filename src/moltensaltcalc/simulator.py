@@ -9,12 +9,11 @@ import numpy as np
 from ase import Atoms, units
 from ase.build import bulk
 from ase.data import atomic_masses, atomic_numbers
+from ase.geometry import cell_to_cellpar, cellpar_to_cell
 from ase.io import Trajectory
 from ase.md.andersen import Andersen
 from ase.md.bussi import Bussi
 from ase.md.langevin import Langevin
-
-# from ase.md.nose_hoover_chain import MaskedMTKNPT
 from ase.md.melchionna import MelchionnaNPT
 from ase.md.nose_hoover_chain import MTKNPT, NoseHooverChainNVT
 from ase.md.nptberendsen import NPTBerendsen
@@ -39,21 +38,24 @@ class MoltenSaltSimulator:
 
     def __init__(
         self,
-        model_name: str,
+        model_name: str | None = None,
         model_parameters: dict | None = None,
         device: str = "cuda",
     ):
         """Initialize the simulator with a specific ML potential.
 
         Args:
-            model_name (str): Which MLIP to use.
+            model_name (str | None, optional): Which MLIP to use. If not set, no calculator will be set. Defaults to None.
             model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
         """
         self.device = device
-        model_name = model_name.lower()
         self.calc = None
-        self._set_calculator(model_name, model_parameters)
+        if model_name is not None:
+            model_name = model_name.lower()
+            self._set_calculator(model_name, model_parameters)
+        else:
+            warnings.warn("No model was specified, so no calculator will be set.", stacklevel=2)
 
     def _lazy_import_model(self, model_name: str):
         """Imports the model module, triggering its registration into MODEL_REGISTRY.
@@ -329,21 +331,24 @@ class MoltenSaltSimulator:
                 pressure_au=pressure_bar * units.bar,
                 taup=taup_fs * units.fs,
                 compressibility_au=compressibility_per_bar / units.bar,
-                logfile=str(logfile),
+                logfile=str(logfile) if logfile is not None else None,
                 loginterval=print_interval,
             )
         # MelchionnaNPT can so far only operate on lists of atoms where the computational box is a triangular matrix
-        # elif npt_dyn.lower() == "melchionnanpt":
-        #     dyn = MelchionnaNPT(
-        #         atoms,
-        #         timestep=timestep_fs * units.fs,
-        #         temperature_K=T,
-        #         externalstress=pressure_bar * units.bar,
-        #         ttime=taut_fs * units.fs,
-        #         pfactor=(taup_fs * units.fs)**2 / compressibility_per_bar * units.bar,
-        #         trajectory=None,
-        #         logfile=str(logfile),
-        #     )
+        elif npt_dyn.lower() == "melchionna":
+            cellpar = cell_to_cellpar(atoms.cell)
+            atoms.set_cell(cellpar_to_cell(cellpar), scale_atoms=True)
+            dyn = MelchionnaNPT(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                externalstress=pressure_bar * units.bar,
+                ttime=taut_fs * units.fs,
+                pfactor=(taup_fs * units.fs) ** 2 / compressibility_per_bar * units.bar,
+                trajectory=None,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
+            )
         elif npt_dyn.lower() == "mtknpt":
             dyn = MTKNPT(
                 atoms,
@@ -356,6 +361,8 @@ class MoltenSaltSimulator:
                 pchain=pchain,
                 tloop=tloop,
                 ploop=ploop,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
             )
         else:
             raise ValueError(f"Unsupported NPT dynamics: {npt_dyn}")
@@ -387,7 +394,7 @@ class MoltenSaltSimulator:
         Args:
             atoms (Atoms): System to simulate.
             T (float | int): Temperature in K.
-            npt_dyn (str, optional): NPT dynamics to use. Defaults to "nptberendsen". Choices: "nptberendsen", "mtknpt". Defaults to "nptberendsen".
+            npt_dyn (str, optional): NPT dynamics to use. Defaults to "nptberendsen". Choices: "nptberendsen", "mtknpt", "melchionna". Defaults to "nptberendsen".
             steps (int, optional): Number of MD steps. Defaults to 1000.
             timestep_fs (float, optional): Time step dt for the simulation in fs. Defaults to 1.0.
             taut_fs (float, optional): Time constant for the NPT temperature coupling in fs. Defaults to 100.0.
@@ -486,7 +493,8 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 taut=tdamp_fs * units.fs,
-                logfile=str(logfile),
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
             )
         elif nvt_dyn.lower() == "nosehoover":
             dyn = NoseHooverChainNVT(
@@ -494,7 +502,7 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 tdamp=tdamp_fs * units.fs,
-                logfile=logfile,
+                logfile=str(logfile) if logfile is not None else None,
                 loginterval=print_interval,
             )
         elif nvt_dyn.lower() == "langevin":
@@ -503,7 +511,8 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 friction=1 / (tdamp_fs * units.fs),
-                logfile=logfile,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
             )
         elif nvt_dyn.lower() == "bussi":
             dyn = Bussi(
@@ -511,7 +520,8 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 taut=tdamp_fs * units.fs,
-                logfile=logfile,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
             )
         elif nvt_dyn.lower() == "andersen":
             dyn = Andersen(
@@ -519,7 +529,8 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 andersen_prob=1 / (tdamp_fs * units.fs),
-                logfile=logfile,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
             )
         else:
             raise ValueError(f"Unsupported NVT dynamics: {nvt_dyn}")
