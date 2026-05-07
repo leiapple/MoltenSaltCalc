@@ -278,7 +278,7 @@ class MoltenSaltSimulator:
         step = dyn.get_number_of_steps()
         pressure = -np.sum(atoms.get_stress()[:3]) / 3
         print(
-            f"Step {step:6d} | T = {atoms.get_temperature():0f} K | P = {pressure:.6e} bar | V = {atoms.get_volume():8.2f} Å³"
+            f"Step {step:6d} | T = {atoms.get_temperature():4.0f} K | P = {pressure:9.2E} bar | V = {atoms.get_volume():5.0f} Å³"
         )
 
     def _select_npt_dynamics(
