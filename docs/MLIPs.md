@@ -141,7 +141,7 @@ Pre-trained universal models from the [NequIP project](https://github.com/mir-gr
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_path` | `str` | `...` | `None` | Path to a precompiled NequIP model file (e.g. nequip_models/mir-group__NequIP-OAM-S__0.1.nequip.pth). The filename must end with '.nequip.pth'. |
+| `model_path` | `str` | `...` | `None` | Path to a precompiled NequIP model file (e.g. `nequip_models/mir-group__NequIP-OAM-S__0.1.nequip.pth`). The filename must end with `.nequip.pth` (torchvision) or `.nequip.pt2` (aotinductor). |
 
 ---
 
