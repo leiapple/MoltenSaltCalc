@@ -149,6 +149,7 @@ max-statements = 65
 
 [tool.pylint.TYPECHECK]
 ignored-modules = [
+    "moltensaltcalc",
     "numpy",
     "ase",
     "scipy",

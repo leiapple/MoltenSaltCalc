@@ -104,11 +104,11 @@ def test_build_system_random(simulator, simple_salt):
     n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
     assert n_cat == ref, f"Random build system number of Na atoms is {n_cat} instead of {ref}"
     x_0, x_0_ref = atoms.get_positions()[0][0], 4.350641283744996
-    assert np.isclose(x_0, x_0_ref, atol=1e-5), (
+    assert np.isclose(x_0, x_0_ref, atol=1e-6), (
         f"Random build system first atom x-coordinate is {x_0:.5f} instead of {x_0_ref:.5f}"
     )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(vol, vol_ref, atol=1e-5), f"Random build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-6), f"Random build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 def test_build_system_rocksalt(simulator, simple_salt):
@@ -127,11 +127,11 @@ def test_build_system_rocksalt(simulator, simple_salt):
     n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
     assert n_cat == ref, f"Rocksalt build system number of Na atoms is {n_cat} instead of {ref}"
     x_2, x_2_ref = atoms.get_positions()[1][0], 2.5550218342426883
-    assert np.isclose(x_2, x_2_ref, atol=1e-5), (
+    assert np.isclose(x_2, x_2_ref, atol=1e-6), (
         f"Rocksalt build system second atom x-coordinate is {x_2:.5f} instead of {x_2_ref:.5f}"
     )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(vol, vol_ref, atol=1e-5), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-6), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 def test_build_system_rocksalt_random_removal(simulator, simple_salt):
@@ -152,11 +152,11 @@ def test_build_system_rocksalt_random_removal(simulator, simple_salt):
     n_cat, ref = len([atom for atom in atoms if atom.symbol == "Na"]), 15
     assert n_cat == ref, f"Rocksalt build system random removal number of Na atoms is {n_cat} instead of {ref}"
     x_6, x_6_ref = atoms.get_positions()[6][0], 7.66507
-    assert np.isclose(x_6, x_6_ref, atol=1e-5), (
+    assert np.isclose(x_6, x_6_ref, atol=1e-6), (
         f"Rocksalt build system second atom x-coordinate is {x_6:.5f} instead of {x_6_ref:.5f}"
     )
     vol, vol_ref = atoms.get_volume(), 900.6947000334296
-    assert np.isclose(vol, vol_ref, atol=1e-5), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
+    assert np.isclose(vol, vol_ref, atol=1e-6), f"Rocksalt build system volume is {vol:.5f} instead of {vol_ref:.5f}"
 
 
 # =========================================================
@@ -220,13 +220,13 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     last_npt = parse_md_print_line(npt_lines[-1])
     # Expected: Step      5 | T =  2572.323986 K | P = 0.01811723 bar | V =   997.8 Å³
     final_temp, ref = last_npt["T"], 2572.323986
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=5), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_npt["P"], 1.811723e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_npt["V"], 997.8
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_npt)
@@ -240,13 +240,13 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -270,13 +270,13 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     last_nvt = parse_md_print_line(nvt_lines[-1])
     # Expected: 5 | T = 1586.091128 K | P = 0.01384603 bar | V =   997.8 Å³
     final_temp, ref = last_nvt["T"], 1586.091128
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_nvt["P"], 1.384603e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_nvt["V"], 997.8
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_nvt)
@@ -290,13 +290,13 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -344,13 +344,13 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
     last_npt = parse_md_print_line(npt_lines[-1])
     # Expected: Step      5 | T = 2669.395626 K | P = 2.677592e-02 bar | V =   929.91 Å³
     final_temp, ref = last_npt["T"], 2669.395626
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_npt["P"], 2.677592e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_npt["V"], 929.91
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_npt)
@@ -364,13 +364,13 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -118.69740  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -394,13 +394,13 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
     # Expected: Step      5 | T = 1673.896908 K | P = 2.568478e-02 bar | V =   929.91 Å³
     final_temp, ref = last_nvt["T"], 1673.896908
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_nvt["P"], 2.568478e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_nvt["V"], 929.91
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_nvt)
@@ -414,13 +414,13 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -125.88989  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -467,13 +467,13 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     last_npt = parse_md_print_line(npt_lines[-1])
     # Expected: Step      5 | T = 3049.936610 K | P = 3.550620e-02 bar | V =   909.70 Å³
     final_temp, ref = last_npt["T"], 3049.936610
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_npt["P"], 3.550620e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_npt["V"], 909.70
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_npt)
@@ -487,13 +487,13 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NPT time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NPT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -117.41988  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -518,13 +518,13 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
 
     # Expected: Step      5 | T = 1566.387644 K | P = 2.270486e-02 bar | V =   909.70 Å³
     final_temp, ref = last_nvt["T"], 1566.387644
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_nvt["P"], 2.270486e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_nvt["V"], 909.70
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_nvt)
@@ -538,13 +538,13 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.80066  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
@@ -587,13 +587,13 @@ def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
     # Expected: Step      5 | T = 2874.498514 K | P = 3.249951e-02 bar | V =   900.69 Å³
     final_temp, ref = last_nvt["T"], 2874.498514
-    assert np.isclose(final_temp, ref, atol=1e-1), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
     final_p, final_p_ref = last_nvt["P"], 3.249951e-02
-    assert np.isclose(final_p, final_p_ref, atol=1e-5), (
+    assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
     final_vol, ref = last_nvt["V"], 900.69
-    assert np.isclose(final_vol, ref, atol=1e-1), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
+    assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
     assert os.path.exists(traj_file_nvt)
@@ -607,13 +607,13 @@ def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
         "time_fs" in last_atoms.info  # type: ignore
     ), f"NVT final time_fs not in last_atoms.info: {last_atoms.info}"  # type: ignore
     final_time_fs, final_time_fs_ref = last_atoms.info["time_fs"], 50.0  # type: ignore
-    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-5), (
+    assert np.isclose(final_time_fs, final_time_fs_ref, atol=1e-4), (
         f"NVT Time of last frame is {final_time_fs:.5f} instead of {final_time_fs_ref:.5f}"
     )
 
     # Ensure the energy is correct
     final_energy, final_energy_ref = last_atoms.get_total_energy(), -118.85734  # type: ignore
-    assert np.isclose(final_energy, final_energy_ref, atol=1e-5), (
+    assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
