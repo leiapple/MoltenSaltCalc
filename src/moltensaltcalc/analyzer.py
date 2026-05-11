@@ -11,6 +11,7 @@ from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory, read
+from ase.io.ulm import InvalidULMFileError
 
 
 def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
@@ -83,12 +84,19 @@ class MoltenSaltAnalyzer:
             if temperatures_npt is None or len(traj_files_npt) != len(temperatures_npt):
                 raise ValueError("Number of NPT trajectory files and temperatures_npt must match.")
             self.trajs_npt, self.times_fs_npt = [], []
-            for traj_file in traj_files_npt:
+            for i, traj_file in enumerate(traj_files_npt):
                 if not os.path.exists(traj_file):
-                    raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
+                    warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
+                    self.temperatures_npt.pop(i)  # type: ignore
+                    continue
                 # The full trajectory needs to be loaded to attach a calculator
-                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                self.trajs_npt.append(traj)
+                try:
+                    traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
+                    self.trajs_npt.append(traj)
+                except InvalidULMFileError as e:
+                    warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
+                    self.temperatures_npt.pop(i)  # type: ignore
+                    continue
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
                 else:
@@ -108,11 +116,18 @@ class MoltenSaltAnalyzer:
             if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
                 raise ValueError("Number of trajectory files and temperatures_nvt must match.")
             self.trajs_nvt, self.times_fs_nvt = [], []
-            for traj_file in traj_files_nvt:
+            for i, traj_file in enumerate(traj_files_nvt):
                 if not os.path.exists(traj_file):
-                    raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                self.trajs_nvt.append(traj)
+                    warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
+                    self.temperatures_nvt.pop(i)  # type: ignore
+                    continue
+                try:
+                    traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
+                    self.trajs_nvt.append(traj)
+                except InvalidULMFileError as e:
+                    warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
+                    self.temperatures_nvt.pop(i)  # type: ignore
+                    continue
                 if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
                     times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
                 else:
