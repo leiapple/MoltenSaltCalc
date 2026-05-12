@@ -84,79 +84,63 @@ class MoltenSaltAnalyzer:
             traj_files_nvt = [Path(traj_files_nvt)]
 
         if traj_files_npt is not None:
-            if temperatures_npt is None or len(traj_files_npt) != len(temperatures_npt):
-                raise ValueError("Number of NPT trajectory files and temperatures_npt must match.")
-            if ids_npt is not None and len(traj_files_npt) != len(ids_npt):
-                raise ValueError("Number of NPT trajectory files and ids_npt must match.")
-            self.trajs_npt, self.times_fs_npt = [], []
-            for i, traj_file in enumerate(traj_files_npt):
-                if not os.path.exists(traj_file):
-                    warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-                    self.temperatures_npt.pop(i)  # type: ignore
-                    if self.ids_npt is not None:
-                        self.ids_npt.pop(i)  # type: ignore
-                    continue
-                try:
-                    # The full trajectory needs to be loaded to attach a calculator
-                    traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                    self.trajs_npt.append(traj)
-                except InvalidULMFileError as e:
-                    warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-                    self.temperatures_npt.pop(i)  # type: ignore
-                    if self.ids_npt is not None:
-                        self.ids_npt.pop(i)  # type: ignore
-                    continue
-                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
-                    times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
-                else:
-                    if no_timestep:
-                        warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                            stacklevel=2,
-                        )
-                    times = np.arange(len(traj)) * timestep_fs
-                self.times_fs_npt.append(times)
-                # Attach the calculator if provided
-                if calculator is not None:
-                    for atoms in traj:  # type: ignore
-                        atoms.calc = calculator
-
+            self.trajs_npt, self.times_fs_npt, self.temperatures_npt, self.ids_npt = self._load_trajectories(
+                traj_files_npt, temperatures_npt, ids_npt, calculator, "NPT", timestep_fs, no_timestep
+            )
         if traj_files_nvt is not None:
-            if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
-                raise ValueError("Number of trajectory files and temperatures_nvt must match.")
-            if ids_nvt is not None and len(traj_files_nvt) != len(ids_nvt):
-                raise ValueError("Number of NVT trajectory files and ids_nvt must match.")
-            self.trajs_nvt, self.times_fs_nvt = [], []
-            for i, traj_file in enumerate(traj_files_nvt):
-                if not os.path.exists(traj_file):
-                    warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-                    self.temperatures_nvt.pop(i)  # type: ignore
-                    if self.ids_nvt is not None:
-                        self.ids_nvt.pop(i)  # type: ignore
-                    continue
-                try:
-                    traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                    self.trajs_nvt.append(traj)
-                except InvalidULMFileError as e:
-                    warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-                    self.temperatures_nvt.pop(i)  # type: ignore
-                    if self.ids_nvt is not None:
-                        self.ids_nvt.pop(i)  # type: ignore
-                    continue
-                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
-                    times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
-                else:
-                    if no_timestep:
-                        warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                            stacklevel=2,
-                        )
-                    times = np.arange(len(traj)) * timestep_fs
-                self.times_fs_nvt.append(times)
-                # Attach the calculator if provided
-                if calculator is not None:
-                    for atoms in traj[1:]:  # type: ignore
-                        atoms.calc = calculator  # type: ignore
+            self.trajs_nvt, self.times_fs_nvt, self.temperatures_nvt, self.ids_nvt = self._load_trajectories(
+                traj_files_nvt, temperatures_nvt, ids_nvt, calculator, "NVT", timestep_fs, no_timestep
+            )
+
+    def _load_trajectories(
+        self,
+        traj_files: list[str] | list[Path],
+        temperatures: list[float] | list[int] | None,
+        ids: list[str] | None,
+        calculator: Calculator | None,
+        id_str: str,
+        timestep_fs: float,
+        no_timestep: bool,
+    ) -> tuple[list | None, list | None, list | None, list | None]:
+        """Load the trajectories from the provided files."""
+        if temperatures is None or len(traj_files) != len(temperatures):
+            raise ValueError(f"Number of {id_str} trajectory files and temperatures_{id_str.lower()} must match.")
+        if ids is not None and len(traj_files) != len(ids):
+            raise ValueError(f"Number of {id_str} trajectory files and ids_{id_str.lower()} must match.")
+        trajs, times_fs = [], []
+        for i, traj_file in enumerate(traj_files):
+            if not os.path.exists(traj_file):
+                warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
+                temperatures.pop(i)
+                if ids is not None:
+                    ids.pop(i)
+                continue
+            try:
+                # The full trajectory needs to be loaded to attach a calculator
+                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
+                trajs.append(traj)
+            except InvalidULMFileError as e:
+                warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
+                temperatures.pop(i)
+                if ids is not None:
+                    ids.pop(i)
+                continue
+            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
+                times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
+            else:
+                if no_timestep:
+                    warnings.warn(
+                        f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
+                        stacklevel=2,
+                    )
+                times = np.arange(len(traj)) * timestep_fs
+            times_fs.append(times)
+            # Attach the calculator if provided
+            if calculator is not None:
+                for atoms in traj:  # type: ignore
+                    atoms.calc = calculator
+
+        return trajs, times_fs, temperatures, ids
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
