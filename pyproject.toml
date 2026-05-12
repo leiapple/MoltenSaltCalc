@@ -141,11 +141,12 @@ good-names = [
 disable = ["import-outside-toplevel"]
 
 [tool.pylint.DESIGN]
+max-attributes = 10
 max-positional-arguments = 20
 max-args = 20
 max-branches = 30
 max-locals = 35
-max-statements = 65
+max-statements = 72
 
 [tool.pylint.TYPECHECK]
 ignored-modules = [

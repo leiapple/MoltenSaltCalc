@@ -100,7 +100,7 @@ def test_trajectory_without_time_fs():
 
 def test_compute_density_vs_time(analyzer):
     """Test that the computed density vs. time is correct."""
-    densities, times = analyzer.compute_density_vs_time(1100)
+    densities, times = analyzer.compute_density_vs_time(T=1100)
     assert isinstance(densities, np.ndarray), "Densities is not a numpy array"
     assert isinstance(times, np.ndarray), "Times is not a numpy array"
     assert len(densities) == len(times), "Length of densities and times do not match"
@@ -124,7 +124,7 @@ def test_compute_density_vs_time(analyzer):
 
 def test_compute_eq_density(analyzer):
     """Test that the equilibrium density is computed correctly."""
-    eq_density = analyzer.compute_eq_density(1100, eq_fraction=EQ_FRAC)
+    eq_density = analyzer.compute_eq_density(T=1100, eq_fraction=EQ_FRAC)
     assert isinstance(eq_density, float), "Equilibrium density is not a float"
     eq_density_ref = 1.52253
     assert np.isclose(eq_density, eq_density_ref, atol=1e-5), (
