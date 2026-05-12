@@ -52,7 +52,7 @@ def _build(params, device):
         ("oam", "large", 2): GRACEModels.GRACE_2L_OMAT_large_ft_AM,  # type: ignore
     }
     try:
-        model = mapping[(task, size, layers)]
+        model = mapping[(task, size, int(layers))]
     except KeyError as e:
         raise ValueError(f"Unknown model parameters: {params}. Known parameters: {list(mapping.keys())}") from e
 
