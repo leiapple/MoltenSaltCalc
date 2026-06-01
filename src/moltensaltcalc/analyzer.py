@@ -11,6 +11,7 @@ from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory, read
+from ase.io.ulm import InvalidULMFileError
 
 
 def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
@@ -37,6 +38,8 @@ class MoltenSaltAnalyzer:
         traj_files_nvt: list[str] | list[Path] | str | Path | None = None,
         temperatures_npt: list[float] | list[int] | None = None,
         temperatures_nvt: list[float] | list[int] | None = None,
+        ids_npt: list[str] | None = None,
+        ids_nvt: list[str] | None = None,
         timestep_fs: int | float | None = None,
         calculator: Calculator | None = None,
     ):
@@ -47,86 +50,97 @@ class MoltenSaltAnalyzer:
             traj_files_nvt (list, str, Path, optional): Path to the NVT trajectory file(s). Defaults to None.
             temperatures_npt (list, optional): List of temperatures in K for the NPT trajectories. Defaults to None.
             temperatures_nvt (list, optional): List of temperatures in K for the NVT trajectories. Defaults to None.
+            ids_npt (list, optional): List of identifiers for the NPT trajectories. Defaults to None.
+            ids_nvt (list, optional): List of identifiers for the NVT trajectories. Defaults to None.
             timestep_fs (int, float, optional): Constant timestep in fs. Only applies if time_fs is not found in the trajectory files. Defaults to None which is treated as 10.0 later but a warning is issued.
             calculator (ase.calculators.calculator, optional): Calculator to use for the energy and forces predictions (needed in case they are not available from the trajectory files, but leads to a slow initialization). Defaults to None.
 
         Raises:
             ValueError: If the number of trajectory files is not equal to the number of temperatures.
+            ValueError: If ids are provided but the number of trajectory files is not equal to the number of ids.
             FileNotFoundError: If the trajectory file(s) does not exist.
 
         Defines:
-            self.trajs_npt (list): List of Trajectory objects for the NPT trajectories
-            self.trajs_nvt (list): List of Trajectory objects for the NVT trajectories
-            self.times_fs_npt (list[np.ndarray]): List of arrays of times in fs for each NPT trajectory
-            self.times_fs_nvt (list[np.ndarray]): List of arrays of times in fs for each NVT trajectory
-            self.temperatures_npt (list): List of temperatures in K for the NPT trajectories
-            self.temperatures_nvt (list): List of temperatures in K for the NVT trajectories
+            self.trajs_npt (list): List of Trajectory objects for the NPT trajectories.
+            self.trajs_nvt (list): List of Trajectory objects for the NVT trajectories.
+            self.times_fs_npt (list[np.ndarray]): List of arrays of times in fs for each NPT trajectory.
+            self.times_fs_nvt (list[np.ndarray]): List of arrays of times in fs for each NVT trajectory.
+            self.temperatures_npt (list): List of temperatures in K for the NPT trajectories.
+            self.temperatures_nvt (list): List of temperatures in K for the NVT trajectories.
+            self.ids_npt (list): List of identifiers for the NPT trajectories.
+            self.ids_nvt (list): List of identifiers for the NVT trajectories.
             self.timestep_fs (float): Constant timestep in fs, only applies if time_fs is not found in the trajectory files.
         """
-        self.trajs_npt = None
-        self.trajs_nvt = None
-        self.times_fs_npt = None
-        self.times_fs_nvt = None
+        self.times_fs_npt, self.times_fs_nvt, self.trajs_npt, self.trajs_nvt = None, None, None, None
+        self.ids_npt, self.ids_nvt = ids_npt, ids_nvt
         no_timestep = timestep_fs is None
         if no_timestep:
-            timestep_fs = 10.0
+            timestep_fs = 10.0  # fs
         self.timestep_fs = timestep_fs
-        self.temperatures_npt = temperatures_npt
-        self.temperatures_nvt = temperatures_nvt
-
+        self.temperatures_npt, self.temperatures_nvt = temperatures_npt, temperatures_nvt
         if isinstance(traj_files_npt, (str, Path)):
             traj_files_npt = [Path(traj_files_npt)]
         if isinstance(traj_files_nvt, (str, Path)):
             traj_files_nvt = [Path(traj_files_nvt)]
 
         if traj_files_npt is not None:
-            if temperatures_npt is None or len(traj_files_npt) != len(temperatures_npt):
-                raise ValueError("Number of NPT trajectory files and temperatures_npt must match.")
-            self.trajs_npt, self.times_fs_npt = [], []
-            for traj_file in traj_files_npt:
-                if not os.path.exists(traj_file):
-                    raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
+            self.trajs_npt, self.times_fs_npt, self.temperatures_npt, self.ids_npt = self._load_trajectories(
+                traj_files_npt, temperatures_npt, ids_npt, calculator, "NPT", timestep_fs, no_timestep
+            )
+        if traj_files_nvt is not None:
+            self.trajs_nvt, self.times_fs_nvt, self.temperatures_nvt, self.ids_nvt = self._load_trajectories(
+                traj_files_nvt, temperatures_nvt, ids_nvt, calculator, "NVT", timestep_fs, no_timestep
+            )
+
+    def _load_trajectories(
+        self,
+        traj_files: list[str] | list[Path],
+        temperatures: list[float] | list[int] | None,
+        ids: list[str] | None,
+        calculator: Calculator | None,
+        id_str: str,
+        timestep_fs: float,
+        no_timestep: bool,
+    ) -> tuple[list | None, list | None, list | None, list | None]:
+        """Load the trajectories from the provided files."""
+        if temperatures is None or len(traj_files) != len(temperatures):
+            raise ValueError(f"Number of {id_str} trajectory files and temperatures_{id_str.lower()} must match.")
+        if ids is not None and len(traj_files) != len(ids):
+            raise ValueError(f"Number of {id_str} trajectory files and ids_{id_str.lower()} must match.")
+        trajs, times_fs = [], []
+        for i, traj_file in enumerate(traj_files):
+            if not os.path.exists(traj_file):
+                warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
+                temperatures.pop(i)
+                if ids is not None:
+                    ids.pop(i)
+                continue
+            try:
                 # The full trajectory needs to be loaded to attach a calculator
                 traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                self.trajs_npt.append(traj)
-                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
-                    times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
-                else:
-                    if no_timestep:
-                        warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                            stacklevel=2,
-                        )
-                    times = np.arange(len(traj)) * timestep_fs
-                self.times_fs_npt.append(times)
-                # Attach the calculator if provided
-                if calculator is not None:
-                    for atoms in traj:  # type: ignore
-                        atoms.calc = calculator
+                trajs.append(traj)
+            except InvalidULMFileError as e:
+                warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
+                temperatures.pop(i)
+                if ids is not None:
+                    ids.pop(i)
+                continue
+            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
+                times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
+            else:
+                if no_timestep:
+                    warnings.warn(
+                        f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
+                        stacklevel=2,
+                    )
+                times = np.arange(len(traj)) * timestep_fs
+            times_fs.append(times)
+            # Attach the calculator if provided
+            if calculator is not None:
+                for atoms in traj:  # type: ignore
+                    atoms.calc = calculator
 
-        if traj_files_nvt is not None:
-            if temperatures_nvt is None or len(traj_files_nvt) != len(temperatures_nvt):
-                raise ValueError("Number of trajectory files and temperatures_nvt must match.")
-            self.trajs_nvt, self.times_fs_nvt = [], []
-            for traj_file in traj_files_nvt:
-                if not os.path.exists(traj_file):
-                    raise FileNotFoundError(f"Trajectory file {traj_file} not found.")
-                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                self.trajs_nvt.append(traj)
-                if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
-                    times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
-                else:
-                    if no_timestep:
-                        warnings.warn(
-                            f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                            stacklevel=2,
-                        )
-                    times = np.arange(len(traj)) * timestep_fs
-                self.times_fs_nvt.append(times)
-                # Attach the calculator if provided
-                if calculator is not None:
-                    for atoms in traj[1:]:  # type: ignore
-                        atoms.calc = calculator  # type: ignore
+        return trajs, times_fs, temperatures, ids
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
@@ -141,19 +155,22 @@ class MoltenSaltAnalyzer:
         if self.trajs_nvt is not None:
             self.times_fs_nvt = [np.arange(len(traj)) * self.timestep_fs for traj in self.trajs_nvt]
 
-    def _select_trajectory(self, preferred_type: str, T: int | float) -> tuple[Trajectory, np.ndarray]:  # type: ignore
+    def _select_trajectory(
+        self, preferred_type: str, T: int | float | None = None, traj_id: str | None = None
+    ) -> tuple[Trajectory, np.ndarray]:  # type: ignore
         """Select trajectory for a given temperature.
 
         Args:
             preferred_type (str): Preferred ensemble to select if both are available.
                 Must be either "npt" or "nvt". If the preferred type is not available
                 for the requested temperature, the available trajectory is returned.
-            T (int, float): Temperature in K for which the trajectory should be selected.
+            T (int, float, optional): Temperature in K for which the trajectory should be selected. Defaults to None.
+            traj_id (str, optional): Identifier for the trajectory to select, overrides T. Defaults to None.
 
         Raises:
             ValueError: If no trajectory files were provided during initialization.
             ValueError: If preferred_type is not "npt" or "nvt".
-            ValueError: If the requested temperature is not available in any trajectory.
+            ValueError: If the requested id/temperature is not available in any trajectory.
 
         Returns:
             Tuple[Trajectory, np.ndarray]: The selected trajectory object and the corresponding simulation times in fs.
@@ -165,16 +182,26 @@ class MoltenSaltAnalyzer:
 
         candidates = {}
 
-        if self.temperatures_npt is not None and T in self.temperatures_npt:
-            idx = self.temperatures_npt.index(T)  # type: ignore
-            candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])  # type: ignore
+        if traj_id is not None:
+            # Select trajectory by ID
+            if self.ids_npt is not None and traj_id in self.ids_npt:
+                idx = self.ids_npt.index(traj_id)
+                candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])  # type: ignore
+            if self.ids_nvt is not None and traj_id in self.ids_nvt:
+                idx = self.ids_nvt.index(traj_id)
+                candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
+        else:
+            # Select trajectory by temperature
+            if self.temperatures_npt is not None and T in self.temperatures_npt:
+                idx = self.temperatures_npt.index(T)  # type: ignore
+                candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])  # type: ignore
 
         if self.temperatures_nvt is not None and T in self.temperatures_nvt:
             idx = self.temperatures_nvt.index(T)  # type: ignore
             candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
 
         if not candidates:
-            raise ValueError(f"Temperature {T} not found in any trajectories.")
+            raise ValueError(f"Id {traj_id} or temperature {T} not found in any trajectories.")
 
         if preferred_type in candidates:
             return candidates[preferred_type]
@@ -194,27 +221,33 @@ class MoltenSaltAnalyzer:
         eq_times = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
         return eq_times
 
-    def compute_density_vs_time(self, T: int | float) -> tuple[np.ndarray, np.ndarray]:
+    def compute_density_vs_time(
+        self, traj_id: str | None = None, T: int | float | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Compute the density from the trajectory file. If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
-            T (int, float): Temperature in K. The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory. Defaults to None.
+            T (int, float, optional): Temperature in K. The trajectory with the matching temperature is selected if traj_id is None. Defaults to None.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Densities in g/cm³ and times in fs
+            Tuple[np.ndarray, np.ndarray]: Densities in g/cm³ and times in fs.
         """
-        traj, times = self._select_trajectory("npt", T)
+        traj, times = self._select_trajectory("npt", T, traj_id)
         masses = traj[0].get_masses().sum() / units.kg * 1e3  # g
         volumes = np.array([atoms.get_volume() for atoms in traj]) * 1e-24  # cm³
         densities = masses / volumes  # g/cm³
         return densities, times
 
-    def compute_eq_density(self, T: int | float, eq_fraction: float = 0.1) -> float:
+    def compute_eq_density(
+        self, traj_id: str | None = None, T: int | float | None = None, eq_fraction: float = 0.1
+    ) -> float:
         """
         Compute the density after equilibration (last x time% of the trajectory). If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
-            T (int, float): Temperature in K. The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory. Defaults to None.
+            T (int, float, optional): Temperature in K. The trajectory with the matching temperature is selected if traj_id is None. Defaults to None.
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
 
         Returns:
@@ -223,19 +256,22 @@ class MoltenSaltAnalyzer:
         if eq_fraction > 1.0 or eq_fraction < 0.0:
             raise ValueError("eq_fraction must be between 0 and 1.")
 
-        densities, times_fs = self.compute_density_vs_time(T)
+        densities, times_fs = self.compute_density_vs_time(traj_id, T)
         eq_times = self._get_eq_times(eq_fraction, times_fs)
         eq_density = np.mean(densities[eq_times], dtype="float64")  # g/cm³
 
         return eq_density
 
-    def compute_thermal_expansion(self, eq_fraction: float = 0.1) -> dict:
+    def compute_thermal_expansion(self, eq_fraction: float = 0.1, ids: list[str] | None = None) -> dict:
         """Compute the thermal expansion coefficient from the initialized trajectory files and NPT temperatures.
 
         Args:
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            ids (list, optional): Identifiers for the trajectories to be used. Defaults to None.
 
         Raises:
+            ValueError: If no trajectory identifiers are provided but were not initialized.
+            ValueError: If at least one of the provided ids is not available in the initialized NPT trajectories.
             ValueError: If no NPT trajectory files are provided.
             ValueError: If no NPT temperatures are provided.
             ValueError: If less than two NPT trajectory files are provided.
@@ -249,15 +285,34 @@ class MoltenSaltAnalyzer:
                 - "fit_line": Fit line
                 - "thermal_expansion": Thermal expansion coefficient in 1/K
         """
-        if self.trajs_npt is None:
+        if ids is not None:
+            if self.ids_npt is None:
+                raise ValueError(
+                    "Trajectory identifiers were not initialized, cannot select by id. Please omit the ids argument."
+                )
+            if not all(id in self.ids_npt for id in ids):
+                raise ValueError(
+                    "At least one of the provided ids is not available in the initialized NPT trajectories."
+                )
+            selected_trajs = []
+            selected_times = []
+            for traj_id in ids:
+                if traj_id in self.ids_npt:
+                    idx = self.ids_npt.index(traj_id)
+                    selected_trajs.append(self.trajs_npt[idx])  # type: ignore
+                    selected_times.append(self.times_fs_npt[idx])  # type: ignore
+        else:
+            selected_trajs = self.trajs_npt
+            selected_times = self.times_fs_npt
+        if selected_trajs is None:
             raise ValueError("No NPT trajectory files provided. The thermal expansion cannot be computed.")
         if self.temperatures_npt is None:
             raise ValueError("No NPT temperatures provided. The thermal expansion cannot be computed.")
-        if len(self.trajs_npt) < 2:
+        if len(selected_trajs) < 2:
             raise ValueError("At least two NPT trajectory files are required for the thermal expansion.")
         # Get the equilibrium volumes for each trajectory file
-        eq_vols = np.zeros(len(self.trajs_npt))
-        for i, (traj, times) in enumerate(zip(self.trajs_npt, self.times_fs_npt, strict=False)):  # type: ignore
+        eq_vols = np.zeros(len(selected_trajs))
+        for i, (traj, times) in enumerate(zip(selected_trajs, selected_times, strict=False)):  # type: ignore
             volumes = np.array([atoms.get_volume() for atoms in traj])  # Å³
             eq_times = self._get_eq_times(eq_fraction, times)
             eq_vol = np.mean(volumes[eq_times])  # Å³
@@ -277,18 +332,19 @@ class MoltenSaltAnalyzer:
             "thermal_expansion": fit[0],
         }
 
-    def compute_heat_capacity(self, T: int | float, eq_fraction: float = 0.1) -> float:
+    def compute_heat_capacity(self, T: int | float, traj_id: str | None = None, eq_fraction: float = 0.1) -> float:
         """Compute heat capacity from total energy fluctuations. If both NPT and NVT trajectories are loaded, the heat capacity is computed from the NVT trajectory.
 
         Args:
             T (int, float): Temperature in K. The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
 
         Returns:
             float: Heat capacity in J/g/K
         """
         # Can only select based on temperature if the traj temperatures are provided
-        traj, times = self._select_trajectory("nvt", T)
+        traj, times = self._select_trajectory("nvt", T, traj_id)
         eq_times = self._get_eq_times(eq_fraction, times)
         U = np.array([atoms.get_total_energy() for atoms in traj])[eq_times]
         # Compute the variation and get the approximate heat capacity C
@@ -297,16 +353,17 @@ class MoltenSaltAnalyzer:
         C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: int | float) -> float:
+    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> float:
         """Compute diffusion coefficient from mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory.
 
         Args:
             T (int, float): Temperature in K.  The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
 
         Returns:
             float: Diffusion coefficient in Å²/fs
         """
-        traj, times = self._select_trajectory("nvt", T)
+        traj, times = self._select_trajectory("nvt", T, traj_id)
         # Get the positions relative to the center of mass
         positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
         r0 = positions[0]  # Å
@@ -345,6 +402,7 @@ class MoltenSaltAnalyzer:
     def compute_rdf(
         self,
         T: float,
+        traj_id: str | None = None,
         max_num_frames: int | None = None,
         rmax: float = 6.0,
         nbins: int = 100,
@@ -356,6 +414,7 @@ class MoltenSaltAnalyzer:
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
             max_num_frames (int, optional): Maximum number of trajectory frames to compute the RDF for and average over. The frames are selected from the end of the simulation. Defaults to None which means all frames are considered.
             rmax (float, optional): Maximum distance (Å) to consider. Defaults to 6.0.
             nbins (int, optional): Number of bins for the RDF. Defaults to 100.
@@ -370,7 +429,7 @@ class MoltenSaltAnalyzer:
             dict: Dictionary with RDF results:
                 - "(atomic number, atomic number)": (distances, avg_rdf) for each pair. Distances are in Å and avg_rdf is unitless (normalized).
         """
-        traj, _ = self._select_trajectory("nvt", T)
+        traj, _ = self._select_trajectory("nvt", T, traj_id)
 
         # Get all unique atomic pairs if not specified
         if pairs is None:
@@ -463,12 +522,14 @@ class MoltenSaltAnalyzer:
     def compute_viscosity(
         self,
         T: float,
+        traj_id: str | None = None,
         tmax_fs: int = 20000,
     ) -> tuple[float, tuple[np.ndarray, np.ndarray]]:
         """Compute shear viscosity using Green-Kubo relation. The timestep between frames has to be constant.
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
+            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
             tmax_fs (int, optional): Maximum correlation time in femtoseconds. Defaults to 20000.
 
         Raises:
@@ -481,7 +542,7 @@ class MoltenSaltAnalyzer:
         """
 
         # Can only select based on temperature if the traj temperatures are provided
-        traj, times = self._select_trajectory("nvt", T)
+        traj, times = self._select_trajectory("nvt", T, traj_id)
 
         # Ensure a constant timestep
         dt = times[1] - times[0]

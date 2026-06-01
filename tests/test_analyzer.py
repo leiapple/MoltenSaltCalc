@@ -100,7 +100,7 @@ def test_trajectory_without_time_fs():
 
 def test_compute_density_vs_time(analyzer):
     """Test that the computed density vs. time is correct."""
-    densities, times = analyzer.compute_density_vs_time(1100)
+    densities, times = analyzer.compute_density_vs_time(T=1100)
     assert isinstance(densities, np.ndarray), "Densities is not a numpy array"
     assert isinstance(times, np.ndarray), "Times is not a numpy array"
     assert len(densities) == len(times), "Length of densities and times do not match"
@@ -124,7 +124,7 @@ def test_compute_density_vs_time(analyzer):
 
 def test_compute_eq_density(analyzer):
     """Test that the equilibrium density is computed correctly."""
-    eq_density = analyzer.compute_eq_density(1100, eq_fraction=EQ_FRAC)
+    eq_density = analyzer.compute_eq_density(T=1100, eq_fraction=EQ_FRAC)
     assert isinstance(eq_density, float), "Equilibrium density is not a float"
     eq_density_ref = 1.52253
     assert np.isclose(eq_density, eq_density_ref, atol=1e-5), (
@@ -243,13 +243,31 @@ def test_compute_viscosity(analyzer):
 
 
 def test_init_missing_traj_file():
-    """Test that an error is raised when a trajectory file doesn't exist."""
-    with pytest.raises(FileNotFoundError) as e:
-        msc.MoltenSaltAnalyzer(
-            traj_files_npt=["nonexistent.traj"],
-            temperatures_npt=[1100],
+    """Test that a warning is raised when a trajectory file doesn't exist."""
+    with pytest.warns(UserWarning) as w:
+        analyzer = msc.MoltenSaltAnalyzer(
+            traj_files_npt=[
+                BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj",
+                BASE / "test_analyzer_trajectories" / "nonexistent.traj",
+            ],
+            temperatures_npt=[1100, 1],
         )
-    assert "Trajectory file nonexistent.traj not found" in str(e.value)
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"
+    assert "Trajectory file" in str(w[0].message) and "nonexistent.traj" in str(w[0].message)
+
+
+def test_invalid_traj_file():
+    """Test that a warning is raised when a trajectory file is invalid."""
+    with pytest.warns(UserWarning) as w:
+        analyzer = msc.MoltenSaltAnalyzer(
+            traj_files_npt=[
+                BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj",
+                BASE / "test_analyzer_trajectories" / "invalid.traj",
+            ],
+            temperatures_npt=[1100, 1],
+        )
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"
+    assert "Error loading trajectory file" in str(w[0].message) and "invalid.traj" in str(w[0].message)
 
 
 def test_invalid_temperature(analyzer):
