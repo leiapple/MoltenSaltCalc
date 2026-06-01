@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build >= 0.10.10, <0.11.0"]
+requires = ["uv_build >= 0.10.10, <0.12.0"]
 build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,7 +28,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Physics",
