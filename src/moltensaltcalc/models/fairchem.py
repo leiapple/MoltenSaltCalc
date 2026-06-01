@@ -33,9 +33,24 @@ from moltensaltcalc.registry import register_model
 )
 def _build(params, device):
     """Import and build the FAIRCHEM MLIP."""
+    import os
+
+    # Normalize device BEFORE CUDA init
+    changed_device = False
+    if device.startswith("cuda"):
+        if ":" in device:
+            idx = device.split(":", 1)[1]
+            if idx.isdigit():
+                os.environ["CUDA_VISIBLE_DEVICES"] = idx
+                changed_device = True
+            else:
+                print(f"Invalid CUDA device index: {idx}, falling back to 'cuda'")
+        device = "cuda"
+
     import random
 
     import numpy as np
+    import torch
     from fairchem.core import FAIRChemCalculator, pretrained_mlip
     from fairchem.core.units.mlip_unit.api.inference import InferenceSettings
 
@@ -59,6 +74,12 @@ def _build(params, device):
     )
     np.random.seed(rng_seed_before)
     random.seed(rng_seed_before)
+    print(f"Changed device: {changed_device}")
+    if changed_device:
+        print("Visible device count:", torch.cuda.device_count())
+        print("Current device index:", torch.cuda.current_device())
+        print("Current device name:", torch.cuda.get_device_name(0))
+        print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
 
     return FAIRChemCalculator(
         predictor,

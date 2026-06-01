@@ -165,5 +165,6 @@ ignored-modules = [
     "sevenn",
     "tensorpotential",
     "upet",
+    "torch",
 ]
 generated-members = ["GRACEModels.*"]
