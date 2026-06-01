@@ -116,7 +116,7 @@ class MoltenSaltSimulator:
             raise ValueError(format_model_error(model_name, model_parameters, e)) from e
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Most likely CUDA not available => fallback to CPU
-            if "cuda" not in str(e).lower() and self.device.lower() == "cuda":
+            if "cuda" not in str(e).lower() or not self.device.lower().startswith("cuda"):
                 raise ValueError(format_model_error(model_name, model_parameters, e)) from e
             warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
             calc = MODEL_REGISTRY[model_name](model_parameters, device="cpu")
