@@ -10,7 +10,7 @@ from ase import Atoms, units
 from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
-from ase.io import Trajectory, read
+from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
 
 
@@ -107,25 +107,40 @@ class MoltenSaltAnalyzer:
             raise ValueError(f"Number of {id_str} trajectory files and temperatures_{id_str.lower()} must match.")
         if ids is not None and len(traj_files) != len(ids):
             raise ValueError(f"Number of {id_str} trajectory files and ids_{id_str.lower()} must match.")
-        trajs, times_fs = [], []
-        for i, traj_file in enumerate(traj_files):
-            if not os.path.exists(traj_file):
+
+        valid_trajs, valid_times_fs, valid_temperatures = [], [], []
+        valid_ids = [] if ids is not None else None
+
+        for traj_file, temperature, run_id in zip(
+            traj_files,
+            temperatures,
+            ids if ids is not None else [None] * len(traj_files),
+            strict=True,
+        ):
+            if not Path(traj_file).exists():
                 warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-                temperatures.pop(i)
-                if ids is not None:
-                    ids.pop(i)
                 continue
             try:
-                # The full trajectory needs to be loaded to attach a calculator
-                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                trajs.append(traj)
+                traj_obj = Trajectory(traj_file)
+                # Check that all frames are readable
+                traj = []
+                bad_frames = []
+                for i in range(len(traj_obj)):  # pylint: disable=consider-using-enumerate
+                    try:
+                        atoms = traj_obj[i]  # type: ignore
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        bad_frames.append(i)
+                        warnings.warn(
+                            f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
+                            stacklevel=2,
+                        )
+                        continue
+                    traj.append(atoms)
+
             except InvalidULMFileError as e:
                 warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-                temperatures.pop(i)
-                if ids is not None:
-                    ids.pop(i)
                 continue
-            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
+            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:  # type: ignore
                 times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
             else:
                 if no_timestep:
@@ -134,13 +149,28 @@ class MoltenSaltAnalyzer:
                         stacklevel=2,
                     )
                 times = np.arange(len(traj)) * timestep_fs
-            times_fs.append(times)
-            # Attach the calculator if provided
             if calculator is not None:
-                for atoms in traj:  # type: ignore
-                    atoms.calc = calculator
+                try:
+                    for atoms in traj:  # type: ignore
+                        atoms.calc = calculator
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    warnings.warn(
+                        f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
+                        stacklevel=2,
+                    )
+                    continue
+            valid_trajs.append(traj)
+            valid_times_fs.append(times)
+            valid_temperatures.append(temperature)
+            if valid_ids is not None:
+                valid_ids.append(run_id)
 
-        return trajs, times_fs, temperatures, ids
+        return (
+            valid_trajs,
+            valid_times_fs,
+            valid_temperatures,
+            valid_ids,
+        )
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
