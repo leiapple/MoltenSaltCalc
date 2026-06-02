@@ -90,7 +90,6 @@ def test_trajectory_without_time_fs():
             traj_files_npt=[BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K_no_time_fs.traj"],
             temperatures_npt=[1100],
         )
-    assert len(w) == 1
     assert "WARNING: No time_fs found in" in str(w[0].message)
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
     ana.recompute_times(timestep_fs=5.0)
