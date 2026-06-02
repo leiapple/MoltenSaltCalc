@@ -225,10 +225,9 @@ class MoltenSaltAnalyzer:
             if self.temperatures_npt is not None and T in self.temperatures_npt:
                 idx = self.temperatures_npt.index(T)  # type: ignore
                 candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])  # type: ignore
-
-        if self.temperatures_nvt is not None and T in self.temperatures_nvt:
-            idx = self.temperatures_nvt.index(T)  # type: ignore
-            candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
+            if self.temperatures_nvt is not None and T in self.temperatures_nvt:
+                idx = self.temperatures_nvt.index(T)  # type: ignore
+                candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
 
         if not candidates:
             raise ValueError(f"Id {traj_id} or temperature {T} not found in any trajectories.")
@@ -326,17 +325,20 @@ class MoltenSaltAnalyzer:
                 )
             selected_trajs = []
             selected_times = []
+            selected_temps = []
             for traj_id in ids:
                 if traj_id in self.ids_npt:
                     idx = self.ids_npt.index(traj_id)
                     selected_trajs.append(self.trajs_npt[idx])  # type: ignore
                     selected_times.append(self.times_fs_npt[idx])  # type: ignore
+                    selected_temps.append(self.temperatures_npt[idx])  # type: ignore
         else:
             selected_trajs = self.trajs_npt
             selected_times = self.times_fs_npt
+            selected_temps = self.temperatures_npt
         if selected_trajs is None:
             raise ValueError("No NPT trajectory files provided. The thermal expansion cannot be computed.")
-        if self.temperatures_npt is None:
+        if selected_temps is None:
             raise ValueError("No NPT temperatures provided. The thermal expansion cannot be computed.")
         if len(selected_trajs) < 2:
             raise ValueError("At least two NPT trajectory files are required for the thermal expansion.")
@@ -350,11 +352,11 @@ class MoltenSaltAnalyzer:
 
         # Fit linear thermal expansion to the volumes normalized by the mean volume
         eq_vols_norm = eq_vols / np.mean(eq_vols)
-        fit = np.polyfit(self.temperatures_npt, eq_vols_norm, 1)
-        fit_line = np.polyval(fit, self.temperatures_npt)
+        fit = np.polyfit(selected_temps, eq_vols_norm, 1)
+        fit_line = np.polyval(fit, selected_temps)
 
         return {
-            "temperatures": self.temperatures_npt,
+            "temperatures": selected_temps,
             "eq_vols": eq_vols,
             "eq_vols_norm": eq_vols_norm,
             "fit": fit,
