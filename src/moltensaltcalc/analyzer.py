@@ -385,24 +385,30 @@ class MoltenSaltAnalyzer:
         C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> float:
-        """Compute diffusion coefficient from mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory.
+    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> dict:
+        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
 
         Args:
             T (int, float): Temperature in K.  The trajectory with the matching temperature is selected.
-            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
+            traj_id (str, optional): Identifier for the trajectory, overrides T to select the trajectory. Defaults to None.
 
         Returns:
-            float: Diffusion coefficient in Å²/fs
+            dict: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}
         """
         traj, times = self._select_trajectory("nvt", T, traj_id)
+        symbols = np.array(traj[0].get_chemical_symbols())
+        unique_elements = np.unique(symbols)
         # Get the positions relative to the center of mass
         positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
         r0 = positions[0]  # Å
-        # Compute the mean square displacements without variation of time origins
-        msd = np.mean(np.sum((positions - r0) ** 2, axis=2), axis=1)  # Å²
-        slope, _ = np.polyfit(times, msd, 1)
-        D = slope / 6.0  # Å²/fs
+        # Get the diffusion coefficients for each atom species
+        D = {}
+        for symbol in unique_elements:
+            mask = symbols == symbol
+            # Compute the mean square displacements without variation of time origins
+            msd = np.mean(np.sum((positions[:, mask, :] - r0[mask, :]) ** 2, axis=2), axis=1)  # Å²
+            slope, _ = np.polyfit(times, msd, 1)
+            D[symbol] = slope / 6.0  # Å²/fs
 
         return D
 

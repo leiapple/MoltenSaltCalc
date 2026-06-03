@@ -160,18 +160,19 @@ def test_compute_diffusion_coefficient_arr_fit(analyzer):
     temps = [1100, 1150, 1200]
     for T in temps:
         diffusion_coeff = analyzer.compute_diffusion_coefficient(T=T)
-        diff_coeffs.append(diffusion_coeff)
+        diff_coeffs.append(diffusion_coeff["Na"])
         if T == 1100:
-            assert isinstance(diffusion_coeff, float), "Diffusion coefficient is not a float for T = {T} K"
-            diffusion_coeff_ref = 0.00098
-            assert np.isclose(diffusion_coeff, diffusion_coeff_ref, atol=1e-5), (
-                f"Diffusion coefficient at {T} K is {diffusion_coeff:.5f} instead of {diffusion_coeff_ref:.5f}"
-            )
+            assert isinstance(diffusion_coeff, dict), f"Diffusion coefficient is not a dict for T = {T} K"
+            diffusion_coeffs_ref = {"Na": 0.00106, "Cl": 0.00090}
+            for symbol, diff_coeff in diffusion_coeff.items():
+                assert np.isclose(diff_coeff, diffusion_coeffs_ref[symbol], atol=1e-5), (
+                    f"Diffusion coefficient at {T} K for {symbol} is {diff_coeff:.5f} instead of {diffusion_coeffs_ref[symbol]:.5f}"
+                )
 
     arr_fit = analyzer.fit_arrhenius(temperatures=temps, diffusion_coeffs=diff_coeffs)
     assert isinstance(arr_fit, dict), "Arrhenius fit results are not returned as a dictionary"
     assert "Ea" in arr_fit, "Arrhenius fit results do not contain the key 'Ea'"
-    Ea, ref = arr_fit["Ea"], 20926.76718
+    Ea, ref = arr_fit["Ea"], 23654.361119076184
     assert np.isclose(Ea, ref, atol=1e-1), f"Activation energy is {Ea:.1f} instead of {ref:.1f}"
 
 
