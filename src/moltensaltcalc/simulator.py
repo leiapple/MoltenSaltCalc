@@ -40,6 +40,7 @@ class MoltenSaltSimulator:
         self,
         model_name: str | None = None,
         model_parameters: dict | None = None,
+        dispersion: bool = False,
         device: str = "cuda",
     ):
         """Initialize the simulator with a specific ML potential.
@@ -53,7 +54,7 @@ class MoltenSaltSimulator:
         self.calc = None
         if model_name is not None:
             model_name = model_name.lower()
-            self._set_calculator(model_name, model_parameters)
+            self._set_calculator(model_name, model_parameters, dispersion)
         else:
             warnings.warn("No model was specified, so no calculator will be set.", stacklevel=2)
 
@@ -77,12 +78,13 @@ class MoltenSaltSimulator:
                 f"Model '{model_name}' could not be imported.\nThis may be due to missing dependencies.\nOriginal error: {repr(e)}"
             ) from e
 
-    def _set_calculator(self, model_name: str, model_parameters: dict | None):
+    def _set_calculator(self, model_name: str, model_parameters: dict | None, dispersion: bool = False):
         """Sets the uMLIP calculator for the energy and forces prediction.
 
         Args:
             model_name (str): Name of the model.
             model_parameters (dict | None): Parameters to be passed to the model.
+            dispersion (bool, optional): Whether to integrate the TorchDFTD3Calculator dispersion into the calculator. The cutoff radius is set to 40 Bohr and the damping is set to bj. Defaults to False.
 
         Raises:
             ValueError: If the model name provided is not available.
@@ -105,6 +107,16 @@ class MoltenSaltSimulator:
         # Instantiate
         try:
             calc = MODEL_REGISTRY[model_name](model_parameters, device=self.device)
+            if dispersion:
+                from ase.calculators.mixing import SumCalculator
+                from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
+
+                dispersion_calc = TorchDFTD3Calculator(
+                    device=self.device,
+                    damping="bj",
+                    cutoff=40.0 * units.Bohr,
+                )
+                calc = SumCalculator([calc, dispersion_calc])
         except ImportError as e:
             # Dependency issue
             raise RuntimeError(

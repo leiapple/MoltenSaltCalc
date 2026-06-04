@@ -54,6 +54,7 @@ nequip = ["nequip"]
 nequix = ["nequix"]
 upet = ["upet"]
 chgnet = ["chgnet"]
+dispersion = ["torch","torch-dftd"]
 
 dev = [
     "nox",
