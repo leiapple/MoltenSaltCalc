@@ -41,8 +41,6 @@ class MoltenSaltSimulator:
         model_name: str | None = None,
         model_parameters: dict | None = None,
         dispersion: bool = False,
-        dispersion_damping: str = "bj",
-        dispersion_cutoff: float = 21.0,
         dispersion_functional: str = "pbe",
         device: str = "cuda",
     ):
@@ -53,14 +51,10 @@ class MoltenSaltSimulator:
             model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
             dispersion (bool, optional): Whether to integrate the TorchDFTD3Calculator dispersion into the calculator. Defaults to False.
-            dispersion_damping (str, optional): Damping function for the dispersion, select from "zero", "bj", "zerom", "bjm". Defaults to "bj".
-            dispersion_cutoff (float, optional): Cutoff radius for the dispersion in Angstrom. Defaults to 21.
             dispersion_functional (str, optional): Functional for the dispersion. Options depend on the selected damping, check the `TorchDFTD3Calculator` package for details. Defaults to "pbe".
         """
         self.device = device
         if dispersion:
-            self.dispersion_damping = dispersion_damping
-            self.dispersion_cutoff = dispersion_cutoff
             self.dispersion_functional = dispersion_functional
         self.calc = None
         if model_name is not None:
@@ -119,16 +113,11 @@ class MoltenSaltSimulator:
         try:
             calc = MODEL_REGISTRY[model_name](model_parameters, device=self.device)
             if dispersion:
-                from ase.calculators.mixing import SumCalculator
-                from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
+                from dftd4.ase import DFTD4
 
-                dispersion_calc = TorchDFTD3Calculator(
-                    device=self.device,
-                    damping=self.dispersion_damping,
-                    cutoff=self.dispersion_cutoff,
-                    functional=self.dispersion_functional,
-                )
-                calc = SumCalculator([calc, dispersion_calc])
+                dispersion_calc = calc = DFTD4(method=self.dispersion_functional)
+                calc = dispersion_calc.add_calculator(calc)
+
         except ImportError as e:
             # Dependency issue
             raise RuntimeError(
