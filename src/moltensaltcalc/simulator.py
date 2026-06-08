@@ -41,6 +41,9 @@ class MoltenSaltSimulator:
         model_name: str | None = None,
         model_parameters: dict | None = None,
         dispersion: bool = False,
+        dispersion_damping: str = "bj",
+        dispersion_cutoff: float = 21.0,
+        dispersion_functional: str = "pbe",
         device: str = "cuda",
     ):
         """Initialize the simulator with a specific ML potential.
@@ -49,8 +52,16 @@ class MoltenSaltSimulator:
             model_name (str | None, optional): Which MLIP to use. If not set, no calculator will be set. Defaults to None.
             model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
+            dispersion (bool, optional): Whether to integrate the TorchDFTD3Calculator dispersion into the calculator. Defaults to False.
+            dispersion_damping (str, optional): Damping function for the dispersion, select from "zero", "bj", "zerom", "bjm". Defaults to "bj".
+            dispersion_cutoff (float, optional): Cutoff radius for the dispersion in Angstrom. Defaults to 21.
+            dispersion_functional (str, optional): Functional for the dispersion. Options depend on the selected damping, check the `TorchDFTD3Calculator` package for details. Defaults to "pbe".
         """
         self.device = device
+        if dispersion:
+            self.dispersion_damping = dispersion_damping
+            self.dispersion_cutoff = dispersion_cutoff
+            self.dispersion_functional = dispersion_functional
         self.calc = None
         if model_name is not None:
             model_name = model_name.lower()
@@ -113,8 +124,9 @@ class MoltenSaltSimulator:
 
                 dispersion_calc = TorchDFTD3Calculator(
                     device=self.device,
-                    damping="bj",
-                    cutoff=40.0 * units.Bohr,
+                    damping=self.dispersion_damping,
+                    cutoff=self.dispersion_cutoff,
+                    functional=self.dispersion_functional,
                 )
                 calc = SumCalculator([calc, dispersion_calc])
         except ImportError as e:
