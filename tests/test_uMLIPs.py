@@ -11,7 +11,7 @@ BASE = Path(__file__).parent
 
 
 @pytest.mark.umlip
-def test_umlip_minimal(request, tmp_path):
+def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     """Test that the uMLIPs are run with the minimal test that they don't crash and produce readable output."""
     model = request.config.getoption("--model")
 

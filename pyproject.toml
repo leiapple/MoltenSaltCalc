@@ -143,6 +143,9 @@ indent-style = "space"
 
 # Pylint config
 [tool.pylint.MAIN]
+ignore-paths = [
+    "^docs/scripts/*",
+]
 
 [tool.pylint.FORMAT]
 max-line-length = 500

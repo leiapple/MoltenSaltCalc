@@ -1,11 +1,7 @@
 <h4 align="center">
 
-<!-- TODO Add PIP? -->
-<!-- ![PyPI - Version](https://img.shields.io/pypi/v/fairchem-core) -->
-![Static Badge](https://img.shields.io/badge/python-3.12%2B-blue)
-![Coverage](https://img.shields.io/badge/coverage-91%25-green)
-![License](https://img.shields.io/badge/license-MIT-blue)
-<!-- TODO: Add DOI? -->
+![CI](https://github.com/leiapple/moltensaltcalc/actions/workflows/ci.yml/badge.svg)
+![Coverage](badges/coverage.svg)
 
 </h4>
 
@@ -23,6 +19,8 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 - MLIP Integration: Support for FAIRCHEM, MACE, and GRACE MLIPs (other universal MLIPs can also be added by the user)
 - Molecular Dynamics: Run NPT (constant pressure-temperature) and NVT (constant volume-temperature) simulations
 - Property Analysis: Compute thermodynamic and transport properties such as density, diffusion coefficients, viscosity, and heat capacity
+
+![Workflow diagram](docs/workflow_diagram.png)
 
 ## Installation
 
@@ -52,6 +50,46 @@ pip install moltensaltcalc[fairchem]
 ```bash
 pip install moltensaltcalc[mace]
 ```
+
+### MatterSim
+
+```bash
+pip install moltensaltcalc[mattersim]
+```
+
+### 7net
+
+```bash
+pip install moltensaltcalc[7net]
+```
+
+### Nequip
+
+```bash
+pip install moltensaltcalc[nequip]
+```
+
+### Nequix
+
+```bash
+pip install moltensaltcalc[nequix]
+```
+
+### UPET
+
+```bash
+pip install moltensaltcalc[upet]
+```
+
+### CHGNet
+
+```bash
+pip install moltensaltcalc[chgnet]
+```
+
+### Variants
+
+By default, the package will try to use the `dftd4` calculator for the dispersion correction. If you do not intend to use it, you can install the package without it by using the `[no-dftd4]` variant (e.g. `pip install moltensaltcalc[grace-nodftd4]`).`
 
 ### Development
 
