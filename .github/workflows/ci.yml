@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Install pre-commit
-        run: uv pip install --system pre-commit
+        run: uv pip install pre-commit
 
       - name: Run pre-commit
         run: pre-commit run --all-files
@@ -49,7 +49,7 @@ jobs:
           enable-cache: true
 
       - name: Install project dependencies
-        run: uv pip install --system .[grace,dev]
+        run: uv pip install .[grace,dev]
 
       - name: Run tests with pytest
         run: pytest --cov=./ --cov-report=xml --cov-report=term-missing
