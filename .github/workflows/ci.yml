@@ -47,7 +47,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
         with:
-          python-version: "3.11"
+          python-version: "3.12.13"
           enable-cache: true
 
       - name: Install dependencies
@@ -70,3 +70,24 @@ jobs:
           git commit -m "Update coverage badge [skip ci]"
           git pull --rebase
           git push origin HEAD:${{ github.ref_name }}
+
+  nox-test:
+    name: uMLIPs integration tests with nox
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.12.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run nox
+        run: uv run nox -s umlip

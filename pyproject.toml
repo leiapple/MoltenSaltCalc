@@ -7,7 +7,7 @@ name = "moltensaltcalc"
 version = "0.1.2"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dynamic = []
 
 authors = [
@@ -23,7 +23,6 @@ license-files = ["LICEN[CS]E*"]
 keywords = ["molecular dynamics", "ML potentials", "ASE", "materials science", "atomistic simulation", "interatomic potentials", "machine learning interatomic potentials"]
 
 classifiers = [
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
