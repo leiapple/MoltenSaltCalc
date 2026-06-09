@@ -1,5 +1,6 @@
 """Nox configuration for uMLIP testing in different environments."""
 
+import os
 from pathlib import Path
 
 import nox
@@ -23,6 +24,10 @@ MODELS = [
 @nox.parametrize("model", MODELS)
 def test_umlip(session, model):
     """Test uMLIPs specified in the model parameter."""
+
+    if "HF_TOKEN" in os.environ:
+        session.env["HF_TOKEN"] = os.environ["HF_TOKEN"]
+
     session.install("pytest")
     session.install(f".[{model}]")
     session.run(
