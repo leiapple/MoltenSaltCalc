@@ -101,6 +101,45 @@ Repository = "https://github.com/leiapple/MoltenSaltCalc/"
 Homepage = "https://github.com/leiapple/MoltenSaltCalc/"
 Issues = "https://github.com/leiapple/MoltenSaltCalc/issues"
 
+# UV sync (for CI)
+[tool.uv]
+conflicts = [
+    [
+        # Default (DFTD3) Variants
+        { extra = "grace" },
+        { extra = "fairchem" },
+        { extra = "mace" },
+        { extra = "mattersim" },
+        { extra = "7net" },
+        { extra = "nequip" },
+        { extra = "nequix" },
+        { extra = "upet" },
+        { extra = "chgnet" },
+
+        # DFTD4 Variants
+        { extra = "grace-dftd4" },
+        { extra = "fairchem-dftd4" },
+        { extra = "mace-dftd4" },
+        { extra = "mattersim-dftd4" },
+        { extra = "7net-dftd4" },
+        { extra = "nequip-dftd4" },
+        { extra = "nequix-dftd4" },
+        { extra = "upet-dftd4" },
+        { extra = "chgnet-dftd4" },
+
+        # No Dispersion Variants
+        { extra = "grace-nodisp" },
+        { extra = "fairchem-nodisp" },
+        { extra = "mace-nodisp" },
+        { extra = "mattersim-nodisp" },
+        { extra = "7net-nodisp" },
+        { extra = "nequip-nodisp" },
+        { extra = "nequix-nodisp" },
+        { extra = "upet-nodisp" },
+        { extra = "chgnet-nodisp" },
+    ]
+]
+
 # UV build
 [tool.uv_build]
 include = ["moltensaltcalc/**/*.pyi", "moltensaltcalc/py.typed"]
