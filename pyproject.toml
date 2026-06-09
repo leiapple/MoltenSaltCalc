@@ -45,22 +45,46 @@ dependencies = [
 
 # Optional dependencies (for MLIPs)
 [project.optional-dependencies]
-grace = ["tensorpotential"]
-fairchem = ["fairchem-core>=2.3,<3.0"]
-mace = ["mace-torch","cuequivariance","cuequivariance-torch"]
-mattersim = ["mattersim"]
-7net = ["sevenn"]
-nequip = ["nequip"]
-nequix = ["nequix"]
-upet = ["upet"]
-chgnet = ["chgnet"]
-dispersion = ["dftd4"]
+
+# By default with the DFTD3 dispersion calculator
+grace = ["tensorpotential","torch","torch-dftd"]
+fairchem = ["fairchem-core>=2.3,<3.0","torch","torch-dftd"]
+mace = ["mace-torch","cuequivariance","cuequivariance-torch","torch","torch-dftd"]
+mattersim = ["mattersim","torch","torch-dftd"]
+7net = ["sevenn","torch","torch-dftd"]
+nequip = ["nequip","torch","torch-dftd"]
+nequix = ["nequix","torch","torch-dftd"]
+upet = ["upet","torch","torch-dftd"]
+chgnet = ["chgnet","torch","torch-dftd"]
+
+# DFTD4 variants
+grace-dftd4 = ["tensorpotential","dftd4"]
+fairchem-dftd4 = ["fairchem-core>=2.3,<3.0","dftd4"]
+mace-dftd4 = ["mace-torch","cuequivariance","cuequivariance-torch","dftd4"]
+mattersim-dftd4 = ["mattersim","dftd4"]
+7net-dftd4 = ["sevenn","dftd4"]
+nequip-dftd4 = ["nequip","dftd4"]
+nequix-dftd4 = ["nequix","dftd4"]
+upet-dftd4 = ["upet","dftd4"]
+chgnet-dftd4 = ["chgnet","dftd4"]
+
+# No dispersion variants
+grace-nodisp = ["tensorpotential",]
+fairchem-nodisp = ["fairchem-core>=2.3,<3.0"]
+mace-nodisp = ["mace-torch","cuequivariance","cuequivariance-torch"]
+mattersim-nodisp = ["mattersim"]
+7net-nodisp = ["sevenn"]
+nequip-nodisp = ["nequip"]
+nequix-nodisp = ["nequix"]
+upet-nodisp = ["upet"]
+chgnet-nodisp = ["chgnet"]
 
 dev = [
     "nox",
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "coverage-badge",
     "uv",
 ]
 
@@ -88,6 +112,9 @@ addopts = "-ra -q --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "umlip: marks tests as requiring a uMLIP backend to be installed (run with 'nox -s' or 'nox -s \"umlip(model='model_name')\"'). These tests are skipped by default as they require different environments.",
+]
+pythonpath = [
+  "src"
 ]
 
 # Ruff config
@@ -166,5 +193,7 @@ ignored-modules = [
     "tensorpotential",
     "upet",
     "torch",
+    "torch_dftd",
+    "dftd4",
 ]
 generated-members = ["GRACEModels.*"]

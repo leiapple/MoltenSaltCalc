@@ -51,6 +51,7 @@ def simulator():
         model_name="grace",
         model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OMAT"},
         device="cpu",
+        dispersion=None,
     )
 
 
