@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from ase import Atoms, units
 from ase.build import bulk
+from ase.calculators.calculator import Calculator
 from ase.data import atomic_masses, atomic_numbers
 from ase.geometry import cell_to_cellpar, cellpar_to_cell
 from ase.io import Trajectory
@@ -41,6 +42,10 @@ class MoltenSaltSimulator:
         model_name: str | None = None,
         model_parameters: dict | None = None,
         device: str = "cuda",
+        dispersion: str | None = "DFTD3",
+        dispersion_functional: str = "pbe",
+        dispersion_cutoff: float = 21.0,
+        dispersion_damping: str = "bj",
     ):
         """Initialize the simulator with a specific ML potential.
 
@@ -48,12 +53,28 @@ class MoltenSaltSimulator:
             model_name (str | None, optional): Which MLIP to use. If not set, no calculator will be set. Defaults to None.
             model_parameters (dict | None, optional): Parameters for the MLIP. Defaults to None.
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
+            dispersion (str | None, optional): Which dispersion calculator to use for long ranger interactions, select from "DFTD2", "DFTD3", "DFTD4" or None. Defaults to "DFTD3".
+            dispersion_functional (str, optional): Functional for the dispersion, should match the functional used in the MLIP calculator. Defaults to "pbe".
+            dispersion_cutoff (float, optional): Cutoff distance for the dispersion calculator in Å. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to 21.0.
+            dispersion_damping (str, optional): Damping function for the dispersion calculator. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to "bj".
+
+        Raises:
+            ValueError: If the specified dispersion calculator is not supported.
         """
         self.device = device
+        if dispersion is not None:
+            dispersion = dispersion.lower()
+            dispersion = None if dispersion == "none" else dispersion
+            if dispersion not in {"dftd2", "dftd3", "dftd4", None}:
+                raise ValueError(
+                    f"Unknown dispersion calculator: {dispersion}. Select from 'DFTD2', 'DFTD3', 'DFTD4' or None."
+                )
         self.calc = None
         if model_name is not None:
             model_name = model_name.lower()
-            self._set_calculator(model_name, model_parameters)
+            self._set_calculator(
+                model_name, model_parameters, dispersion, dispersion_functional, dispersion_cutoff, dispersion_damping
+            )
         else:
             warnings.warn("No model was specified, so no calculator will be set.", stacklevel=2)
 
@@ -77,12 +98,65 @@ class MoltenSaltSimulator:
                 f"Model '{model_name}' could not be imported.\nThis may be due to missing dependencies.\nOriginal error: {repr(e)}"
             ) from e
 
-    def _set_calculator(self, model_name: str, model_parameters: dict | None):
+    def _add_dispersion_calc(
+        self,
+        calc: Calculator,
+        dispersion: str | None,
+        dispersion_functional: str,
+        dispersion_cutoff: float,
+        dispersion_damping: str,
+    ) -> Calculator:
+        """Adds the dispersion calculator to the calculator.
+
+        Args:
+            calc (Calculator): The calculator to add the dispersion calculator to.
+            dispersion (str | None): Which dispersion calculator to use for long ranger interactions, select from "dftd3", "dftd4" or None.
+            dispersion_functional (str): Functional for the dispersion, should match the functional used in the MLIP calculator.
+            dispersion_cutoff (float): Cutoff distance for the dispersion calculator in Å.
+            dispersion_damping (str): Damping function for the dispersion calculator.
+
+        Returns:
+            Calculator: The calculator with the dispersion calculator added.
+        """
+        if dispersion in ["dftd2", "dftd3"]:
+            from ase.calculators.mixing import SumCalculator
+            from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
+
+            dispersion_calc = TorchDFTD3Calculator(
+                dft=calc,
+                cutoff=dispersion_cutoff,
+                damping=dispersion_damping,
+                device=self.device,
+                old=dispersion == "dftd2",
+            )
+            calc = SumCalculator([dispersion_calc, calc])  # type: ignore
+
+        elif dispersion == "dftd4":
+            from dftd4.ase import DFTD4  # type: ignore
+
+            dispersion_calc = DFTD4(method=dispersion_functional)
+            calc = dispersion_calc.add_calculator(calc)
+
+        return calc
+
+    def _set_calculator(
+        self,
+        model_name: str,
+        model_parameters: dict | None,
+        dispersion: str | None,
+        dispersion_functional: str,
+        dispersion_cutoff: float,
+        dispersion_damping: str,
+    ):
         """Sets the uMLIP calculator for the energy and forces prediction.
 
         Args:
             model_name (str): Name of the model.
             model_parameters (dict | None): Parameters to be passed to the model.
+            dispersion (str | None): Which dispersion calculator to use for long ranger interactions, select from "dftd3", "dftd4" or None.
+            dispersion_functional (str): Functional for the dispersion, should match the functional used in the MLIP calculator.
+            dispersion_cutoff (float): Cutoff distance for the dispersion calculator in Å.
+            dispersion_damping (str): Damping function for the dispersion calculator.
 
         Raises:
             ValueError: If the model name provided is not available.
@@ -103,8 +177,13 @@ class MoltenSaltSimulator:
             raise RuntimeError(f"Model '{model_name}' was imported but did not register itself.")
 
         # Instantiate
+        builder = MODEL_REGISTRY[model_name]
         try:
-            calc = MODEL_REGISTRY[model_name](model_parameters, device=self.device)
+            calc = builder(model_parameters, device=self.device)
+            calc = self._add_dispersion_calc(
+                calc, dispersion, dispersion_functional, dispersion_cutoff, dispersion_damping
+            )
+
         except ImportError as e:
             # Dependency issue
             raise RuntimeError(
@@ -119,7 +198,7 @@ class MoltenSaltSimulator:
             if "cuda" not in str(e).lower() or not self.device.lower().startswith("cuda"):
                 raise ValueError(format_model_error(model_name, model_parameters, e)) from e
             warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
-            calc = MODEL_REGISTRY[model_name](model_parameters, device="cpu")
+            calc = builder(model_parameters, device="cpu")
 
         if calc is None:
             raise RuntimeError(f"Builder for '{model_name}' returned None")
@@ -597,7 +676,7 @@ class MoltenSaltSimulator:
 
 
 # Example usage
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":  # pragma: no coversque
     np.random.seed(42)  # Ensure reproducibility (initial random placements)
     # Setup the MS simulator class with the desired model and parameters
     sim = MoltenSaltSimulator(

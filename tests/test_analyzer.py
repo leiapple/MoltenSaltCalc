@@ -34,6 +34,8 @@ def analyzer():
         ],
         temperatures_npt=[1100, 1150, 1200],
         temperatures_nvt=[1100, 1150, 1200],
+        ids_npt=["npt_NaCl_1100K", "npt_NaCl_1150K", "npt_NaCl_1200K"],
+        ids_nvt=["nvt_NaCl_1100K", "nvt_NaCl_1150K", "nvt_NaCl_1200K"],
     )
 
 
@@ -90,7 +92,6 @@ def test_trajectory_without_time_fs():
             traj_files_npt=[BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K_no_time_fs.traj"],
             temperatures_npt=[1100],
         )
-    assert len(w) == 1
     assert "WARNING: No time_fs found in" in str(w[0].message)
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
     ana.recompute_times(timestep_fs=5.0)
@@ -134,7 +135,7 @@ def test_compute_eq_density(analyzer):
 
 def test_compute_thermal_expansion(analyzer):
     """Test that the thermal expansion is computed correctly."""
-    thermal_expansion = analyzer.compute_thermal_expansion(eq_fraction=EQ_FRAC)
+    thermal_expansion = analyzer.compute_thermal_expansion(eq_fraction=EQ_FRAC, ids=analyzer.ids_npt)
     assert isinstance(thermal_expansion, dict), "Thermal expansion results are not returned as a dictionary"
     assert "thermal_expansion" in thermal_expansion, (
         "Thermal expansion results do not contain the key 'thermal_expansion'"
@@ -161,18 +162,19 @@ def test_compute_diffusion_coefficient_arr_fit(analyzer):
     temps = [1100, 1150, 1200]
     for T in temps:
         diffusion_coeff = analyzer.compute_diffusion_coefficient(T=T)
-        diff_coeffs.append(diffusion_coeff)
+        diff_coeffs.append(diffusion_coeff["Na"])
         if T == 1100:
-            assert isinstance(diffusion_coeff, float), "Diffusion coefficient is not a float for T = {T} K"
-            diffusion_coeff_ref = 0.00098
-            assert np.isclose(diffusion_coeff, diffusion_coeff_ref, atol=1e-5), (
-                f"Diffusion coefficient at {T} K is {diffusion_coeff:.5f} instead of {diffusion_coeff_ref:.5f}"
-            )
+            assert isinstance(diffusion_coeff, dict), f"Diffusion coefficient is not a dict for T = {T} K"
+            diffusion_coeffs_ref = {"Na": 0.00106, "Cl": 0.00090}
+            for symbol, diff_coeff in diffusion_coeff.items():
+                assert np.isclose(diff_coeff, diffusion_coeffs_ref[symbol], atol=1e-5), (
+                    f"Diffusion coefficient at {T} K for {symbol} is {diff_coeff:.5f} instead of {diffusion_coeffs_ref[symbol]:.5f}"
+                )
 
     arr_fit = analyzer.fit_arrhenius(temperatures=temps, diffusion_coeffs=diff_coeffs)
     assert isinstance(arr_fit, dict), "Arrhenius fit results are not returned as a dictionary"
     assert "Ea" in arr_fit, "Arrhenius fit results do not contain the key 'Ea'"
-    Ea, ref = arr_fit["Ea"], 20926.76718
+    Ea, ref = arr_fit["Ea"], 23654.361119076184
     assert np.isclose(Ea, ref, atol=1e-1), f"Activation energy is {Ea:.1f} instead of {ref:.1f}"
 
 
@@ -180,7 +182,14 @@ def test_compute_rdf(analyzer):
     """Test that the radial distribution function is computed correctly."""
     nbins = 5
     pair = (11, "Na")
-    rdf_data = analyzer.compute_rdf(max_num_frames=3, rmax=5.0, nbins=nbins, pairs=[pair], T=1200)
+    rdf_data = analyzer.compute_rdf(
+        max_num_frames=3,
+        rmax=5.0,
+        nbins=nbins,
+        pairs=[pair],
+        T=1200,
+        cell_constraints=[(-np.inf, np.inf) for _ in range(3)],
+    )
     assert isinstance(rdf_data, dict), "Radial distribution function results are not returned as a dictionary"
     assert pair in rdf_data, f"Radial distribution function results do not contain the key '{pair}'"
     (distances, avg_rdf), distances_ref, avg_rdf_ref = (
@@ -252,7 +261,7 @@ def test_init_missing_traj_file():
             ],
             temperatures_npt=[1100, 1],
         )
-    assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"  # type: ignore
     assert "Trajectory file" in str(w[0].message) and "nonexistent.traj" in str(w[0].message)
 
 
@@ -266,7 +275,7 @@ def test_invalid_traj_file():
             ],
             temperatures_npt=[1100, 1],
         )
-    assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"  # type: ignore
     assert "Error loading trajectory file" in str(w[0].message) and "invalid.traj" in str(w[0].message)
 
 

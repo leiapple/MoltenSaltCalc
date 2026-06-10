@@ -28,7 +28,7 @@ def __getattr__(name: str):
             return import_module(".simulator", __name__).MoltenSaltSimulator
         except ImportError as e:
             raise ImportError(
-                "MoltenSaltSimulator requires additional dependencies.\nInstall with: pip install moltensaltcalc[grace|mace|fairchem]"
+                "MoltenSaltSimulator requires additional dependencies.\nInstall with: pip install moltensaltcalc"
             ) from e
 
     if name == "MoltenSaltAnalyzer":

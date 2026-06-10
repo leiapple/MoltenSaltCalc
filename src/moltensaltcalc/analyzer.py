@@ -10,7 +10,7 @@ from ase import Atoms, units
 from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
-from ase.io import Trajectory, read
+from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
 
 
@@ -107,25 +107,40 @@ class MoltenSaltAnalyzer:
             raise ValueError(f"Number of {id_str} trajectory files and temperatures_{id_str.lower()} must match.")
         if ids is not None and len(traj_files) != len(ids):
             raise ValueError(f"Number of {id_str} trajectory files and ids_{id_str.lower()} must match.")
-        trajs, times_fs = [], []
-        for i, traj_file in enumerate(traj_files):
-            if not os.path.exists(traj_file):
+
+        valid_trajs, valid_times_fs, valid_temperatures = [], [], []
+        valid_ids = [] if ids is not None else None
+
+        for traj_file, temperature, run_id in zip(
+            traj_files,
+            temperatures,
+            ids if ids is not None else [None] * len(traj_files),
+            strict=True,
+        ):
+            if not Path(traj_file).exists():
                 warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-                temperatures.pop(i)
-                if ids is not None:
-                    ids.pop(i)
                 continue
             try:
-                # The full trajectory needs to be loaded to attach a calculator
-                traj = Trajectory(traj_file) if calculator is None else read(traj_file, index=":")
-                trajs.append(traj)
+                traj_obj = Trajectory(traj_file)
+                # Check that all frames are readable
+                traj = []
+                bad_frames = []
+                for i in range(len(traj_obj)):  # pylint: disable=consider-using-enumerate
+                    try:
+                        atoms = traj_obj[i]  # type: ignore
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        bad_frames.append(i)
+                        warnings.warn(
+                            f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
+                            stacklevel=2,
+                        )
+                        continue
+                    traj.append(atoms)
+
             except InvalidULMFileError as e:
                 warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-                temperatures.pop(i)
-                if ids is not None:
-                    ids.pop(i)
                 continue
-            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj):  # type: ignore
+            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:  # type: ignore
                 times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
             else:
                 if no_timestep:
@@ -134,13 +149,28 @@ class MoltenSaltAnalyzer:
                         stacklevel=2,
                     )
                 times = np.arange(len(traj)) * timestep_fs
-            times_fs.append(times)
-            # Attach the calculator if provided
             if calculator is not None:
-                for atoms in traj:  # type: ignore
-                    atoms.calc = calculator
+                try:
+                    for atoms in traj:  # type: ignore
+                        atoms.calc = calculator
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    warnings.warn(
+                        f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
+                        stacklevel=2,
+                    )
+                    continue
+            valid_trajs.append(traj)
+            valid_times_fs.append(times)
+            valid_temperatures.append(temperature)
+            if valid_ids is not None:
+                valid_ids.append(run_id)
 
-        return trajs, times_fs, temperatures, ids
+        return (
+            valid_trajs,
+            valid_times_fs,
+            valid_temperatures,
+            valid_ids,
+        )
 
     def recompute_times(self, timestep_fs: int | float):
         """Sets the times corresponding to the atoms in the trajectories according to the provided constant timestep.
@@ -195,10 +225,9 @@ class MoltenSaltAnalyzer:
             if self.temperatures_npt is not None and T in self.temperatures_npt:
                 idx = self.temperatures_npt.index(T)  # type: ignore
                 candidates["npt"] = (self.trajs_npt[idx], self.times_fs_npt[idx])  # type: ignore
-
-        if self.temperatures_nvt is not None and T in self.temperatures_nvt:
-            idx = self.temperatures_nvt.index(T)  # type: ignore
-            candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
+            if self.temperatures_nvt is not None and T in self.temperatures_nvt:
+                idx = self.temperatures_nvt.index(T)  # type: ignore
+                candidates["nvt"] = (self.trajs_nvt[idx], self.times_fs_nvt[idx])  # type: ignore
 
         if not candidates:
             raise ValueError(f"Id {traj_id} or temperature {T} not found in any trajectories.")
@@ -296,17 +325,20 @@ class MoltenSaltAnalyzer:
                 )
             selected_trajs = []
             selected_times = []
+            selected_temps = []
             for traj_id in ids:
                 if traj_id in self.ids_npt:
                     idx = self.ids_npt.index(traj_id)
                     selected_trajs.append(self.trajs_npt[idx])  # type: ignore
                     selected_times.append(self.times_fs_npt[idx])  # type: ignore
+                    selected_temps.append(self.temperatures_npt[idx])  # type: ignore
         else:
             selected_trajs = self.trajs_npt
             selected_times = self.times_fs_npt
+            selected_temps = self.temperatures_npt
         if selected_trajs is None:
             raise ValueError("No NPT trajectory files provided. The thermal expansion cannot be computed.")
-        if self.temperatures_npt is None:
+        if selected_temps is None:
             raise ValueError("No NPT temperatures provided. The thermal expansion cannot be computed.")
         if len(selected_trajs) < 2:
             raise ValueError("At least two NPT trajectory files are required for the thermal expansion.")
@@ -320,11 +352,11 @@ class MoltenSaltAnalyzer:
 
         # Fit linear thermal expansion to the volumes normalized by the mean volume
         eq_vols_norm = eq_vols / np.mean(eq_vols)
-        fit = np.polyfit(self.temperatures_npt, eq_vols_norm, 1)
-        fit_line = np.polyval(fit, self.temperatures_npt)
+        fit = np.polyfit(selected_temps, eq_vols_norm, 1)
+        fit_line = np.polyval(fit, selected_temps)
 
         return {
-            "temperatures": self.temperatures_npt,
+            "temperatures": selected_temps,
             "eq_vols": eq_vols,
             "eq_vols_norm": eq_vols_norm,
             "fit": fit,
@@ -353,24 +385,30 @@ class MoltenSaltAnalyzer:
         C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> float:
-        """Compute diffusion coefficient from mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory.
+    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> dict:
+        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
 
         Args:
             T (int, float): Temperature in K.  The trajectory with the matching temperature is selected.
-            traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
+            traj_id (str, optional): Identifier for the trajectory, overrides T to select the trajectory. Defaults to None.
 
         Returns:
-            float: Diffusion coefficient in Å²/fs
+            dict: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}
         """
         traj, times = self._select_trajectory("nvt", T, traj_id)
+        symbols = np.array(traj[0].get_chemical_symbols())
+        unique_elements = np.unique(symbols)
         # Get the positions relative to the center of mass
         positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
         r0 = positions[0]  # Å
-        # Compute the mean square displacements without variation of time origins
-        msd = np.mean(np.sum((positions - r0) ** 2, axis=2), axis=1)  # Å²
-        slope, _ = np.polyfit(times, msd, 1)
-        D = slope / 6.0  # Å²/fs
+        # Get the diffusion coefficients for each atom species
+        D = {}
+        for symbol in unique_elements:
+            mask = symbols == symbol
+            # Compute the mean square displacements without variation of time origins
+            msd = np.mean(np.sum((positions[:, mask, :] - r0[mask, :]) ** 2, axis=2), axis=1)  # Å²
+            slope, _ = np.polyfit(times, msd, 1)
+            D[symbol] = slope / 6.0  # Å²/fs
 
         return D
 
@@ -599,7 +637,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   Equilibrium Density
     # ===================================================================================
     for temp in temps:
-        density = analyzer.compute_eq_density(temp, EQ_FRAC)
+        density = analyzer.compute_eq_density(eq_fraction=EQ_FRAC, T=temp)
         print(f"Density of NaCl at {temp} K: {density:.3f} g/cm³")
 
     # ===================================================================================
@@ -612,7 +650,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   Heat Capacity
     # ===================================================================================
     for temp in temps:
-        heat_cap = analyzer.compute_heat_capacity(temp, EQ_FRAC)
+        heat_cap = analyzer.compute_heat_capacity(T=temp, eq_fraction=EQ_FRAC)
         print(f"Heat capacity at {temp} K: C = {heat_cap:.6e} J/g/K")
 
     # ===================================================================================
@@ -621,7 +659,7 @@ if __name__ == "__main__":  # pragma: no cover
     diff_coeffs = []
     for temp in temps:
         # Set up the analyzer for each of the NVT trajectories to get the diffusion coefficient there
-        diff_coeff = analyzer.compute_diffusion_coefficient(temp)
+        diff_coeff = analyzer.compute_diffusion_coefficient(T=temp)
         print(f"Diffusion coefficient at {temp} K: D = {diff_coeff:.6e} Å²/fs")
         diff_coeffs.append(diff_coeff)
     # Get the activation energy
@@ -634,7 +672,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   RDF
     # ===================================================================================
     for temp in temps:
-        rdf_data = analyzer.compute_rdf(temp, 10, pairs=[(11, 11)], nbins=10)
+        rdf_data = analyzer.compute_rdf(T=temp, max_num_frames=10, pairs=[(11, 11)], nbins=10)
         print(
             f"Radial distribution function for Na-Na at {temp} K: g(r) = {np.round(rdf_data[(11, 11)][1], 2)}... at distances {rdf_data[(11, 11)][0]}... Å"
         )
@@ -643,6 +681,6 @@ if __name__ == "__main__":  # pragma: no cover
     #   Viscosity
     # ===================================================================================
     for temp in temps:
-        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(temp)
+        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(T=temp)
         # autocorr_mean and autocorr_times can be used to check that the plateau of the autocorrelation function reaches tmax_fs
         print(f"Viscosity at {temp} K: η = {viscosity:.6e} Pa·s")
