@@ -129,7 +129,7 @@ class MoltenSaltSimulator:
                 device=self.device,
                 old=dispersion == "dftd2",
             )
-            calc = SumCalculator([dispersion_calc, calc])
+            calc = SumCalculator([dispersion_calc, calc])  # type: ignore
 
         elif dispersion == "dftd4":
             from dftd4.ase import DFTD4  # type: ignore

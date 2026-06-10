@@ -34,6 +34,8 @@ def analyzer():
         ],
         temperatures_npt=[1100, 1150, 1200],
         temperatures_nvt=[1100, 1150, 1200],
+        ids_npt=["npt_NaCl_1100K", "npt_NaCl_1150K", "npt_NaCl_1200K"],
+        ids_nvt=["nvt_NaCl_1100K", "nvt_NaCl_1150K", "nvt_NaCl_1200K"],
     )
 
 
@@ -133,7 +135,7 @@ def test_compute_eq_density(analyzer):
 
 def test_compute_thermal_expansion(analyzer):
     """Test that the thermal expansion is computed correctly."""
-    thermal_expansion = analyzer.compute_thermal_expansion(eq_fraction=EQ_FRAC)
+    thermal_expansion = analyzer.compute_thermal_expansion(eq_fraction=EQ_FRAC, ids=analyzer.ids_npt)
     assert isinstance(thermal_expansion, dict), "Thermal expansion results are not returned as a dictionary"
     assert "thermal_expansion" in thermal_expansion, (
         "Thermal expansion results do not contain the key 'thermal_expansion'"
@@ -180,7 +182,14 @@ def test_compute_rdf(analyzer):
     """Test that the radial distribution function is computed correctly."""
     nbins = 5
     pair = (11, "Na")
-    rdf_data = analyzer.compute_rdf(max_num_frames=3, rmax=5.0, nbins=nbins, pairs=[pair], T=1200)
+    rdf_data = analyzer.compute_rdf(
+        max_num_frames=3,
+        rmax=5.0,
+        nbins=nbins,
+        pairs=[pair],
+        T=1200,
+        cell_constraints=[(-np.inf, np.inf) for _ in range(3)],
+    )
     assert isinstance(rdf_data, dict), "Radial distribution function results are not returned as a dictionary"
     assert pair in rdf_data, f"Radial distribution function results do not contain the key '{pair}'"
     (distances, avg_rdf), distances_ref, avg_rdf_ref = (
@@ -252,7 +261,7 @@ def test_init_missing_traj_file():
             ],
             temperatures_npt=[1100, 1],
         )
-    assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"  # type: ignore
     assert "Trajectory file" in str(w[0].message) and "nonexistent.traj" in str(w[0].message)
 
 
@@ -266,7 +275,7 @@ def test_invalid_traj_file():
             ],
             temperatures_npt=[1100, 1],
         )
-    assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"
+    assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"  # type: ignore
     assert "Error loading trajectory file" in str(w[0].message) and "invalid.traj" in str(w[0].message)
 
 

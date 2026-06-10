@@ -637,7 +637,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   Equilibrium Density
     # ===================================================================================
     for temp in temps:
-        density = analyzer.compute_eq_density(temp, EQ_FRAC)
+        density = analyzer.compute_eq_density(eq_fraction=EQ_FRAC, T=temp)
         print(f"Density of NaCl at {temp} K: {density:.3f} g/cm³")
 
     # ===================================================================================
@@ -650,7 +650,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   Heat Capacity
     # ===================================================================================
     for temp in temps:
-        heat_cap = analyzer.compute_heat_capacity(temp, EQ_FRAC)
+        heat_cap = analyzer.compute_heat_capacity(T=temp, eq_fraction=EQ_FRAC)
         print(f"Heat capacity at {temp} K: C = {heat_cap:.6e} J/g/K")
 
     # ===================================================================================
@@ -659,7 +659,7 @@ if __name__ == "__main__":  # pragma: no cover
     diff_coeffs = []
     for temp in temps:
         # Set up the analyzer for each of the NVT trajectories to get the diffusion coefficient there
-        diff_coeff = analyzer.compute_diffusion_coefficient(temp)
+        diff_coeff = analyzer.compute_diffusion_coefficient(T=temp)
         print(f"Diffusion coefficient at {temp} K: D = {diff_coeff:.6e} Å²/fs")
         diff_coeffs.append(diff_coeff)
     # Get the activation energy
@@ -672,7 +672,7 @@ if __name__ == "__main__":  # pragma: no cover
     #   RDF
     # ===================================================================================
     for temp in temps:
-        rdf_data = analyzer.compute_rdf(temp, 10, pairs=[(11, 11)], nbins=10)
+        rdf_data = analyzer.compute_rdf(T=temp, max_num_frames=10, pairs=[(11, 11)], nbins=10)
         print(
             f"Radial distribution function for Na-Na at {temp} K: g(r) = {np.round(rdf_data[(11, 11)][1], 2)}... at distances {rdf_data[(11, 11)][0]}... Å"
         )
@@ -681,6 +681,6 @@ if __name__ == "__main__":  # pragma: no cover
     #   Viscosity
     # ===================================================================================
     for temp in temps:
-        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(temp)
+        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(T=temp)
         # autocorr_mean and autocorr_times can be used to check that the plateau of the autocorrelation function reaches tmax_fs
         print(f"Viscosity at {temp} K: η = {viscosity:.6e} Pa·s")
