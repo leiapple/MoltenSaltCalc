@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.2"
+version = "0.1.3"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
 requires-python = ">=3.11"
