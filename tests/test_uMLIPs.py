@@ -27,6 +27,7 @@ def test_umlip_minimal(request, tmp_path):  # pragma: no cover
         model_name=model,
         model_parameters=params,
         device="cpu",
+        dispersion=None,
     )
 
     atoms = sim.build_system(
