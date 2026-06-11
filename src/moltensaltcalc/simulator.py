@@ -44,7 +44,7 @@ class MoltenSaltSimulator:
         device: str = "cuda",
         dispersion: str | None = "DFTD3",
         dispersion_functional: str = "pbe",
-        dispersion_cutoff: float = 21.0,
+        dispersion_cutoff: float = 40 * units.Bohr,
         dispersion_damping: str = "bj",
     ):
         """Initialize the simulator with a specific ML potential.
@@ -55,7 +55,7 @@ class MoltenSaltSimulator:
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
             dispersion (str | None, optional): Which dispersion calculator to use for long ranger interactions, select from "DFTD2", "DFTD3", "DFTD4" or None. Defaults to "DFTD3".
             dispersion_functional (str, optional): Functional for the dispersion, should match the functional used in the MLIP calculator. Defaults to "pbe".
-            dispersion_cutoff (float, optional): Cutoff distance for the dispersion calculator in Å. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to 21.0.
+            dispersion_cutoff (float, optional): Cutoff distance for the dispersion calculator in Å. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to 40 * units.Bohr.
             dispersion_damping (str, optional): Damping function for the dispersion calculator. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to "bj".
 
         Raises:
@@ -123,6 +123,7 @@ class MoltenSaltSimulator:
             from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
 
             dispersion_calc = TorchDFTD3Calculator(
+                xc=dispersion_functional,
                 dft=calc,
                 cutoff=dispersion_cutoff,
                 damping=dispersion_damping,
