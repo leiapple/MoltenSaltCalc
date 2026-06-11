@@ -124,7 +124,6 @@ class MoltenSaltSimulator:
 
             dispersion_calc = TorchDFTD3Calculator(
                 xc=dispersion_functional,
-                dft=calc,
                 cutoff=dispersion_cutoff,
                 damping=dispersion_damping,
                 device=self.device,
