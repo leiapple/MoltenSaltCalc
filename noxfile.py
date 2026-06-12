@@ -11,7 +11,7 @@ MODELS = [
     "7net",
     "chgnet",
     "fairchem",
-    "grace",
+    "grace-nodisp",
     "mace",
     "mattersim",
     "nequip",
@@ -29,7 +29,7 @@ def test_umlip(session, model):
         session.env["HF_TOKEN"] = os.environ["HF_TOKEN"]
 
     session.install("pytest")
-    session.install(f".[{model}-nodisp]")
+    session.install(f".[{model}]")
     session.run(
         "pytest",
         "tests/test_uMLIPs.py",

@@ -57,15 +57,7 @@ upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
 
 # DFTD4 variants
-grace-dftd4 = ["tensorpotential","dftd4"]
-fairchem-dftd4 = ["fairchem-core>=2.3,<3.0","dftd4"]
-mace-dftd4 = ["mace-torch","cuequivariance","cuequivariance-torch","dftd4"]
-mattersim-dftd4 = ["mattersim","dftd4"]
-7net-dftd4 = ["sevenn","dftd4"]
-nequip-dftd4 = ["nequip","dftd4"]
-nequix-dftd4 = ["nequix","dftd4"]
-upet-dftd4 = ["upet","dftd4"]
-chgnet-dftd4 = ["chgnet","dftd4"]
+dftd4 = ["dftd4"]
 
 # No dispersion variants
 grace-nodisp = ["tensorpotential",]
@@ -114,17 +106,6 @@ conflicts = [
         { extra = "nequix" },
         { extra = "upet" },
         { extra = "chgnet" },
-
-        # DFTD4 Variants
-        { extra = "grace-dftd4" },
-        { extra = "fairchem-dftd4" },
-        { extra = "mace-dftd4" },
-        { extra = "mattersim-dftd4" },
-        { extra = "7net-dftd4" },
-        { extra = "nequip-dftd4" },
-        { extra = "nequix-dftd4" },
-        { extra = "upet-dftd4" },
-        { extra = "chgnet-dftd4" },
 
         # No Dispersion Variants
         { extra = "grace-nodisp" },

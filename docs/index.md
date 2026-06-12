@@ -38,16 +38,16 @@ pip install moltensaltcalc[mattersim]
 
 Note: MLIP backends may have conflicting dependencies. It is recommended to use separate environments for each backend.
 
-By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you want to use the `dftd4` calculator instead, install the package with
-
-```bash
-pip install moltensaltcalc[grace-dftd4]
-```
-
-or if you do not wish to use the calculator at all, install with
+By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator, install with `-nodisp` instead, e.g.
 
 ```bash
 pip install moltensaltcalc[grace-nodisp]
+```
+
+If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g.
+
+```bash
+pip install moltensaltcalc[grace-nodisp,dftd4]
 ```
 
 ---

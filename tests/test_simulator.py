@@ -48,10 +48,33 @@ def parse_md_print_line(line: str):
 def simulator():
     """Create a lightweight simulator instance."""
     return msc.MoltenSaltSimulator(
-        model_name="grace",
-        model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OMAT"},
+        model_name="mace",
+        model_parameters={"model_size": "small"},
         device="cpu",
-        dispersion=None,
+        dispersion="DFTD3",
+    )
+
+
+@pytest.fixture
+def simulator_dftd2():
+    """Create a lightweight simulator instance."""
+    return msc.MoltenSaltSimulator(
+        model_name="mace",
+        model_parameters={"model_size": "small"},
+        device="cpu",
+        dispersion="DFTD2",
+        dispersion_damping="zero",
+    )
+
+
+@pytest.fixture
+def simulator_dftd4():
+    """Create a lightweight simulator instance."""
+    return msc.MoltenSaltSimulator(
+        model_name="mace",
+        model_parameters={"model_size": "small"},
+        device="cpu",
+        dispersion="DFTD4",
     )
 
 
@@ -85,6 +108,7 @@ def test_available_models():
         and "nequix" in models
         and "upet" in models
         and "chgnet" in models
+        and "mattersim" in models
     )
 
 
@@ -179,7 +203,7 @@ def test_create_simulation_folder(simulator, tmp_path):
 
 
 @pytest.mark.slow
-def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
+def test_md_berendsen_nosehoover_dftd3(simulator, simple_salt, capsys, tmp_path):
     """End to end test for a short MD simulation."""
     np.random.seed(RNG_SEED)
 
@@ -219,14 +243,14 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NPT run
     assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_npt = parse_md_print_line(npt_lines[-1])
-    # Expected: Step      5 | T =  2572.323986 K | P = 0.01811723 bar | V =   997.8 Å³
-    final_temp, ref = last_npt["T"], 2572.323986
+    # Expected: Step      5 | T = 2651 K | P =  1.54E-02 bar | V =   984 Å³
+    final_temp, ref = last_npt["T"], 2651
     assert np.isclose(final_temp, ref, atol=5), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_npt["P"], 1.811723e-02
+    final_p, final_p_ref = last_npt["P"], 1.54e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_npt["V"], 997.8
+    final_vol, ref = last_npt["V"], 985
     assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -246,12 +270,12 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.01026  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -125.83595181509473  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
-    atoms = simulator.run_nvt_simulation(
+    simulator.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
@@ -269,14 +293,14 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_nvt = parse_md_print_line(nvt_lines[-1])
-    # Expected: 5 | T = 1586.091128 K | P = 0.01384603 bar | V =   997.8 Å³
-    final_temp, ref = last_nvt["T"], 1586.091128
+    # Expected: Step      5 | T = 1724 K | P =  9.81E-03 bar | V =   984 Å³ -133.52490154075994
+    final_temp, ref = last_nvt["T"], 1724
     assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_nvt["P"], 1.384603e-02
+    final_p, final_p_ref = last_nvt["P"], 9.81e-03
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_nvt["V"], 997.8
+    final_vol, ref = last_nvt["V"], 984
     assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -296,14 +320,14 @@ def test_md_berendsen_nosehoover(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.52126  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -133.52490154075994  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
 
 @pytest.mark.slow
-def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
+def test_mtknpt_langevin_dftd3(simulator, simple_salt, capsys, tmp_path):
     """End to end test for a short MD simulation."""
     np.random.seed(RNG_SEED)
 
@@ -343,14 +367,14 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NPT run
     assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_npt = parse_md_print_line(npt_lines[-1])
-    # Expected: Step      5 | T = 2669.395626 K | P = 2.677592e-02 bar | V =   929.91 Å³
-    final_temp, ref = last_npt["T"], 2669.395626
+    # Expected: Step      5 | T = 2694 K | P =  2.22E-02 bar | V =   926 Å³
+    final_temp, ref = last_npt["T"], 2694
     assert np.isclose(final_temp, ref, atol=1.0), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_npt["P"], 2.677592e-02
+    final_p, final_p_ref = last_npt["P"], 2.22e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_npt["V"], 929.91
+    final_vol, ref = last_npt["V"], 926
     assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -370,12 +394,12 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -118.69740  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -124.87886495132443  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
-    atoms = simulator.run_nvt_simulation(
+    simulator.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
@@ -393,14 +417,14 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
 
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
-    # Expected: Step      5 | T = 1673.896908 K | P = 2.568478e-02 bar | V =   929.91 Å³
-    final_temp, ref = last_nvt["T"], 1673.896908
+    # Expected: Step      5 | T = 1734 K | P =  2.03E-02 bar | V =   926 Å³
+    final_temp, ref = last_nvt["T"], 1734
     assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_nvt["P"], 2.568478e-02
+    final_p, final_p_ref = last_nvt["P"], 2.03e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_nvt["V"], 929.91
+    final_vol, ref = last_nvt["V"], 926
     assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -420,19 +444,20 @@ def test_mtknpt_langevin(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -125.88989  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -132.49171516235603  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
 
-def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
+@pytest.mark.slow
+def test_melchionna_bussi_dftd2(simulator_dftd2, simple_salt, capsys, tmp_path):
     """End to end test for a short MD simulation."""
     np.random.seed(RNG_SEED)
 
-    npt_dir, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
+    npt_dir, nvt_dir = simulator_dftd2.create_simulation_folder(base_name=str(tmp_path))
 
-    atoms = simulator.build_system(
+    atoms = simulator_dftd2.build_system(
         simple_salt["anions"],
         simple_salt["cations"],
         simple_salt["n_anions"],
@@ -447,7 +472,7 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     log_file_npt = os.path.join(npt_dir, "npt_run.log")
     log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
 
-    atoms = simulator.run_npt_simulation(
+    atoms = simulator_dftd2.run_npt_simulation(
         atoms,
         T=T,
         npt_dyn="melchionna",
@@ -466,14 +491,14 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NPT run
     assert len(npt_lines) > 0, "No MD output found in capsys from the NPT run"
     last_npt = parse_md_print_line(npt_lines[-1])
-    # Expected: Step      5 | T = 3049.936610 K | P = 3.550620e-02 bar | V =   909.70 Å³
-    final_temp, ref = last_npt["T"], 3049.936610
+    # Expected: Step      5 | T = 3229 K | P =  2.85E-02 bar | V =   909 Å³
+    final_temp, ref = last_npt["T"], 3229
     assert np.isclose(final_temp, ref, atol=1.0), f"NPT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_npt["P"], 3.550620e-02
+    final_p, final_p_ref = last_npt["P"], 2.85e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NPT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_npt["V"], 909.70
+    final_vol, ref = last_npt["V"], 909
     assert np.isclose(final_vol, ref, atol=1.0), f"NPT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -493,12 +518,12 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -117.41988  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -124.26893481363217  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NTP Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
-    atoms = simulator.run_nvt_simulation(
+    simulator_dftd2.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
@@ -517,14 +542,14 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
 
-    # Expected: Step      5 | T = 1566.387644 K | P = 2.270486e-02 bar | V =   909.70 Å³
-    final_temp, ref = last_nvt["T"], 1566.387644
+    # Expected: Step      5 | T = 1522 K | P =  1.72E-02 bar | V =   909 Å³
+    final_temp, ref = last_nvt["T"], 1522
     assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_nvt["P"], 2.270486e-02
+    final_p, final_p_ref = last_nvt["P"], 1.72e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
-    final_vol, ref = last_nvt["V"], 909.70
+    final_vol, ref = last_nvt["V"], 909
     assert np.isclose(final_vol, ref, atol=1.0), f"NVT final V = {final_vol:.1f} instead of expected {ref:.1f}"
 
     # Ensure the trajectory file exists and is readable
@@ -544,13 +569,14 @@ def test_melchionna_bussi(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -127.80066  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -135.0207692132702  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
 
-def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
+@pytest.mark.slow
+def test_md_nvt_andersen_dftd3(simulator, simple_salt, capsys, tmp_path):
     """End to end test for a short MD simulation."""
     np.random.seed(RNG_SEED)
 
@@ -568,7 +594,7 @@ def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
     T = 1200
     traj_file_nvt = os.path.join(nvt_dir, "nvt_simulation.traj")
     log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
-    atoms = simulator.run_nvt_simulation(
+    simulator.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
@@ -586,10 +612,10 @@ def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
 
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
-    # Expected: Step      5 | T = 2828 K | P =  2.80E-02 bar | V =   901 Å³
-    final_temp, ref = last_nvt["T"], 2828
+    # Expected: Step      5 | T = 2843 K | P =  2.39E-02 bar | V =   901 Å³
+    final_temp, ref = last_nvt["T"], 2843
     assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_nvt["P"], 2.80e-02
+    final_p, final_p_ref = last_nvt["P"], 2.39e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
@@ -613,19 +639,20 @@ def test_md_andersen(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -117.41695  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -123.76115745551635  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )
 
 
-def test_md_nvtberendsen(simulator, simple_salt, capsys, tmp_path):
+@pytest.mark.slow
+def test_md_nvtberendsen_dftd4(simulator_dftd4, simple_salt, capsys, tmp_path):
     """End to end test for a short MD simulation."""
     np.random.seed(RNG_SEED)
 
-    _, nvt_dir = simulator.create_simulation_folder(base_name=str(tmp_path))
+    _, nvt_dir = simulator_dftd4.create_simulation_folder(base_name=str(tmp_path))
 
-    atoms = simulator.build_system(
+    atoms = simulator_dftd4.build_system(
         simple_salt["anions"],
         simple_salt["cations"],
         simple_salt["n_anions"],
@@ -637,7 +664,7 @@ def test_md_nvtberendsen(simulator, simple_salt, capsys, tmp_path):
     T = 1200
     traj_file_nvt = os.path.join(nvt_dir, "nvt_simulation.traj")
     log_file_nvt = os.path.join(nvt_dir, "nvt_run.log")
-    atoms = simulator.run_nvt_simulation(
+    simulator_dftd4.run_nvt_simulation(
         atoms,
         T=T,
         steps=5,
@@ -655,10 +682,10 @@ def test_md_nvtberendsen(simulator, simple_salt, capsys, tmp_path):
 
     # Assertions for the NVT run
     assert len(nvt_lines) > 0, "No MD output found in capsys from the NPT run"
-    # Expected: Step      5 | T = 2748 K | P =  3.35E-02 bar | V =   901 Å³
-    final_temp, ref = last_nvt["T"], 2748
+    # Expected: Step      5 | T = 2824 K | P =  3.13E-02 bar | V =   901 Å³
+    final_temp, ref = last_nvt["T"], 2824
     assert np.isclose(final_temp, ref, atol=1.0), f"NVT final T = {final_temp:.1f} instead of expected {ref:.1f}"
-    final_p, final_p_ref = last_nvt["P"], 3.35e-02
+    final_p, final_p_ref = last_nvt["P"], 3.13e-02
     assert np.isclose(final_p, final_p_ref, atol=1e-4), (
         f"NVT final P = {final_p:.5f} instead of expected {final_p_ref:.5f}"
     )
@@ -682,7 +709,7 @@ def test_md_nvtberendsen(simulator, simple_salt, capsys, tmp_path):
     )
 
     # Ensure the energy is correct
-    final_energy, final_energy_ref = last_atoms.get_total_energy(), -117.62622  # type: ignore
+    final_energy, final_energy_ref = last_atoms.get_total_energy(), -120.62106909664277  # type: ignore
     assert np.isclose(final_energy, final_energy_ref, atol=1e-4), (
         f"NVT Energy of last frame is {final_energy:.5f} instead of {final_energy_ref:.5f}"
     )

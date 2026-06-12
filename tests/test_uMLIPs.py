@@ -24,10 +24,10 @@ def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     params = {"model_path": BASE / "test_uMLIP_precompiled" / "oam-s-0.1.nequip.pth"} if model == "nequip" else {}
 
     sim = msc.MoltenSaltSimulator(
-        model_name=model,
+        model_name=model.replace("-nodisp", ""),
         model_parameters=params,
         device="cpu",
-        dispersion=None,
+        dispersion=None if "-nodisp" in model else "DFTD3",
     )
 
     atoms = sim.build_system(
@@ -55,12 +55,12 @@ def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     actual_n_steps = len(traj) - 1  # The first frame is the initial structure
     assert actual_n_steps == n_steps, f"The trajectory file contains {actual_n_steps} frames instead of {n_steps}"
     atoms = traj[-1]  # type: ignore
-    assert atoms.get_potential_energy() is not None, (
+    assert atoms.get_potential_energy() is not None, (  # type: ignore
         "Potential energy cannot be obtained from the written trajectory from atoms.get_potential_energy()"
     )  # type: ignore
-    assert atoms.get_forces() is not None, (
+    assert atoms.get_forces() is not None, (  # type: ignore
         "Forces cannot be obtained from the written trajectory from atoms.get_forces()"
     )  # type: ignore
-    assert atoms.get_stress() is not None, (
+    assert atoms.get_stress() is not None, (  # type: ignore
         "Stress cannot be obtained from the written trajectory from atoms.get_stress()"
     )  # type: ignore
