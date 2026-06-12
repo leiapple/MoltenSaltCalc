@@ -26,6 +26,7 @@ from ase.md.velocitydistribution import (
 )
 from scipy.spatial.distance import cdist
 
+from moltensaltcalc.gpu_selection import select_device
 from moltensaltcalc.model_discovery import discover_models
 from moltensaltcalc.model_errors import (
     format_model_error,
@@ -61,7 +62,7 @@ class MoltenSaltSimulator:
         Raises:
             ValueError: If the specified dispersion calculator is not supported.
         """
-        self.device = device
+        self.device = select_device(device)
         if dispersion is not None:
             dispersion = dispersion.lower()
             dispersion = None if dispersion == "none" else dispersion
@@ -160,7 +161,7 @@ class MoltenSaltSimulator:
 
         Raises:
             ValueError: If the model name provided is not available.
-            ValueError: If the calculator could not be setup (e.g. unavailable GPU).
+            ValueError: If the calculator could not be setup.
             RuntimeError: If the calculator doesn't contain the model (e.g. wrong parameters).
         """
         model_name = model_name.lower()
@@ -193,12 +194,6 @@ class MoltenSaltSimulator:
         except ValueError as e:
             # Parameter error
             raise ValueError(format_model_error(model_name, model_parameters, e)) from e
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            # Most likely CUDA not available => fallback to CPU
-            if "cuda" not in str(e).lower() or not self.device.lower().startswith("cuda"):
-                raise ValueError(format_model_error(model_name, model_parameters, e)) from e
-            warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
-            calc = builder(model_parameters, device="cpu")
 
         if calc is None:
             raise RuntimeError(f"Builder for '{model_name}' returned None")

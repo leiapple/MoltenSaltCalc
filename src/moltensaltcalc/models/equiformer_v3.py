@@ -54,22 +54,7 @@ def clean_model(model_path: str):
 )
 def _build(params, device):
     """Import and build the EQUIFORMER_V3 MLIP."""
-    import os
-
-    # Normalize device BEFORE CUDA init
-    changed_device = False
-    if device.startswith("cuda"):
-        if ":" in device:
-            idx = device.split(":", 1)[1]
-            if idx.isdigit():
-                os.environ["CUDA_VISIBLE_DEVICES"] = idx
-                changed_device = True
-            else:
-                print(f"Invalid CUDA device index: {idx}, falling back to 'cuda'")
-        device = "cuda"
-
     import numpy as np
-    import torch
     from equiformer_v3.core import OCPCalculator
     from huggingface_hub import hf_hub_download
 
@@ -89,11 +74,5 @@ def _build(params, device):
         cpu=device.startswith("cpu"),
         seed=rng_seed_before,
     )
-    print(f"Changed device: {changed_device}")
-    if changed_device:
-        print("Visible device count:", torch.cuda.device_count())
-        print("Current device index:", torch.cuda.current_device())
-        print("Current device name:", torch.cuda.get_device_name(0))
-        print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
 
     return calc
