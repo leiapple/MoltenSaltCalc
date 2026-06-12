@@ -11,7 +11,7 @@ MODELS = [
     "7net",
     "chgnet",
     "fairchem",
-    "grace",
+    "grace-nodisp",
     "mace",
     "mattersim",
     "nequip",

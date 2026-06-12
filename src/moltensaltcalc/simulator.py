@@ -9,6 +9,7 @@ import numpy as np
 from ase import Atoms, units
 from ase.build import bulk
 from ase.calculators.calculator import Calculator
+from ase.constraints import FixCom
 from ase.data import atomic_masses, atomic_numbers
 from ase.geometry import cell_to_cellpar, cellpar_to_cell
 from ase.io import Trajectory
@@ -22,7 +23,6 @@ from ase.md.nvtberendsen import NVTBerendsen
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
-    ZeroRotation,
 )
 from scipy.spatial.distance import cdist
 
@@ -44,7 +44,7 @@ class MoltenSaltSimulator:
         device: str = "cuda",
         dispersion: str | None = "DFTD3",
         dispersion_functional: str = "pbe",
-        dispersion_cutoff: float = 21.0,
+        dispersion_cutoff: float = 40 * units.Bohr,
         dispersion_damping: str = "bj",
     ):
         """Initialize the simulator with a specific ML potential.
@@ -55,7 +55,7 @@ class MoltenSaltSimulator:
             device (str, optional): Which device to use for the calculations, select from "cpu" and "cuda". Defaults to "cuda".
             dispersion (str | None, optional): Which dispersion calculator to use for long ranger interactions, select from "DFTD2", "DFTD3", "DFTD4" or None. Defaults to "DFTD3".
             dispersion_functional (str, optional): Functional for the dispersion, should match the functional used in the MLIP calculator. Defaults to "pbe".
-            dispersion_cutoff (float, optional): Cutoff distance for the dispersion calculator in Å. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to 21.0.
+            dispersion_cutoff (float, optional): Cutoff distance for the dispersion calculator in Å. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to 40 * units.Bohr.
             dispersion_damping (str, optional): Damping function for the dispersion calculator. Only applies if dispersion is "DFTD2" or "DFTD3". Defaults to "bj".
 
         Raises:
@@ -123,7 +123,7 @@ class MoltenSaltSimulator:
             from torch_dftd.torch_dftd3_calculator import TorchDFTD3Calculator
 
             dispersion_calc = TorchDFTD3Calculator(
-                dft=calc,
+                xc=dispersion_functional,
                 cutoff=dispersion_cutoff,
                 damping=dispersion_damping,
                 device=self.device,
@@ -348,6 +348,8 @@ class MoltenSaltSimulator:
         else:
             raise ValueError(f"Unsupported lattice type: {lattice}")
 
+        Stationary(atoms)
+        atoms.set_constraint(FixCom())
         atoms.calc = self.calc
 
         return atoms
@@ -377,7 +379,7 @@ class MoltenSaltSimulator:
         print_interval: int,
         logfile: str | Path | None,
     ) -> NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT:
-        """_summary_
+        """Select the NPT dynamics to use.
 
         Args:
             npt_dyn (str): NPT dynamics to use. Choices: "nptberendsen", "mtknpt", "melchionna".
@@ -399,7 +401,7 @@ class MoltenSaltSimulator:
             ValueError: If the NPT specified with npt_dyn is not supported.
 
         Returns:
-            NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT: _description_
+            NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT: The selected NPT dynamics.
         """
         if npt_dyn.lower() == "nptberendsen":
             dyn = NPTBerendsen(
@@ -429,6 +431,11 @@ class MoltenSaltSimulator:
                 loginterval=print_interval,
             )
         elif npt_dyn.lower() == "mtknpt":
+            # Does not support constraints (yet), so disable it for the npt simulation
+            atoms.constraints = []
+            warnings.warn(
+                "MTKNPT does not support constraints, so they are disabled for the NPT simulation.", stacklevel=2
+            )
             dyn = MTKNPT(
                 atoms,
                 timestep=timestep_fs * units.fs,
@@ -497,9 +504,10 @@ class MoltenSaltSimulator:
         # Set up the atomic momenta at the given temperature and remove center of mass motion
         MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
-        ZeroRotation(atoms)
+        atoms.set_constraint(FixCom())
 
         # Run the NPT dynamics simulation
+        constraints = atoms.constraints
         dyn = self._select_npt_dynamics(
             npt_dyn,
             atoms,
@@ -533,6 +541,10 @@ class MoltenSaltSimulator:
         # Run the simulation
         dyn.run(steps)
 
+        # Re-enable the constraints in case they were disabled (MTKNPT)
+        if npt_dyn.lower() == "mtknpt":
+            atoms.constraints = constraints
+
         # Close the trajectory file
         trajectory_npt.close()
         print(f"NPT simulation finished, trajectory saved to {traj_file}")
@@ -549,7 +561,7 @@ class MoltenSaltSimulator:
         print_interval: int,
         logfile: str | Path | None,
     ) -> NVTBerendsen | NoseHooverChainNVT | Langevin | Bussi | Andersen:
-        """_summary_
+        """Select the NVT dynamics to use.
 
         Args:
             nvt_dyn (str): NVT dynamics to use. Choices: "nvtberendsen", "nosehoover", "langevin", "bussi", "andersen".
@@ -564,7 +576,7 @@ class MoltenSaltSimulator:
             ValueError: If the NVT dynamics specified with nvt_dyn is not supported.
 
         Returns:
-            NVTBerendsen | NoseHooverChainNVT | Langevin | Bussi | Andersen: _description_
+            NVTBerendsen | NoseHooverChainNVT | Langevin | Bussi | Andersen: The selected NVT dynamics.
         """
         if nvt_dyn.lower() == "nvtberendsen":
             dyn = NVTBerendsen(
@@ -592,6 +604,7 @@ class MoltenSaltSimulator:
                 friction=1 / (tdamp_fs * units.fs),
                 logfile=str(logfile) if logfile is not None else None,
                 loginterval=print_interval,
+                fixcm=False,
             )
         elif nvt_dyn.lower() == "bussi":
             dyn = Bussi(
@@ -647,9 +660,10 @@ class MoltenSaltSimulator:
         """
 
         # Set up the atomic momenta at the given temperature and remove center of mass motion
-        MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
+        if not np.isclose(atoms.get_temperature(), T, rtol=0.1):
+            MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
-        ZeroRotation(atoms)
+        atoms.set_constraint(FixCom())
 
         # Setup the Nose-Hoover chain NVT dynamics simulation
         dyn = self._select_nvt_dynamics(nvt_dyn, atoms, T, timestep_fs, tdamp_fs, print_interval, logfile)

@@ -31,7 +31,7 @@ Create a virtual environment and install the package with the desired MLIP backe
 
 Tested on Python 3.10, 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), grace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
 
-By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you want to use the `dftd4` calculator instead, add `-dftd4` to the pip command, e.g. `pip install moltensaltcalc[grace-dftd4]` or if you do not wish to use the calculator at all, install with `-nodisp` instead, e.g. `pip install moltensaltcalc[grace-nodisp]`.
+By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator at all, install with `-nodisp` instead, e.g. `pip install moltensaltcalc[grace-nodisp]`. If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g. `pip install moltensaltcalc[grace-nodisp,dftd4]`.
 
 ### GRACE
 
