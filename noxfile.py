@@ -17,6 +17,7 @@ MODELS = [
     "nequip",
     "nequix",
     "upet",
+    "equiformer_v3",
 ]
 
 

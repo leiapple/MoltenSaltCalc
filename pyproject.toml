@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.4"
+version = "0.1.5"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -55,6 +55,7 @@ nequip = ["nequip","torch","torch-dftd"]
 nequix = ["nequix","torch","torch-dftd"]
 upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
+equiformer_v3 = ["equiformer-v3","torch","torch-dftd"]
 
 # DFTD4 variants
 dftd4 = ["dftd4"]
@@ -69,6 +70,7 @@ nequip-nodisp = ["nequip"]
 nequix-nodisp = ["nequix"]
 upet-nodisp = ["upet"]
 chgnet-nodisp = ["chgnet"]
+equiformer_v3-nodisp = ["equiformer-v3"]
 
 dev = [
     "nox",
@@ -106,6 +108,7 @@ conflicts = [
         { extra = "nequix" },
         { extra = "upet" },
         { extra = "chgnet" },
+        { extra = "equiformer_v3" },
 
         # No Dispersion Variants
         { extra = "grace-nodisp" },
@@ -117,6 +120,7 @@ conflicts = [
         { extra = "nequix-nodisp" },
         { extra = "upet-nodisp" },
         { extra = "chgnet-nodisp" },
+        { extra = "equiformer_v3-nodisp" },
     ]
 ]
 
@@ -217,5 +221,7 @@ ignored-modules = [
     "torch",
     "torch_dftd",
     "dftd4",
+    "equiformer_v3",
+    "huggingface_hub",
 ]
 generated-members = ["GRACEModels.*"]

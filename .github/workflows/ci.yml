@@ -53,6 +53,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev --extra mace --extra dftd4
 
+      - name: Cache ML dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache
+          key: cache-${{ runner.os }}-ml-v1
+          restore-keys: |
+            cache-${{ runner.os }}-ml-
+
       - name: Run tests
         run: uv run pytest --cov=./ --cov-report=xml --cov-report=term-missing
 
@@ -68,12 +76,13 @@ jobs:
           git add badges/coverage.svg
           git diff --quiet && exit 0
           git commit -m "Update coverage badge [skip ci]"
-          git pull --rebase
-          git push origin HEAD:${{ github.ref_name }}
+          git pull --rebase --autostash
+          git push
 
   nox-test:
     name: uMLIPs integration tests with nox
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -88,6 +97,11 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --extra dev
+
+      - name: Ensure HuggingFace cache dir is cached
+        run: |
+          echo "HF_HOME=$HOME/.cache/huggingface" >> $GITHUB_ENV
+          echo "HF_HUB_CACHE=$HOME/.cache/huggingface/hub" >> $GITHUB_ENV
 
       - name: Run nox
         run: uv run nox -s umlip
