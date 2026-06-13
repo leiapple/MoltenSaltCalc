@@ -7,7 +7,7 @@ import warnings
 def select_device(device: str) -> str:
     """Select the GPU device to use by only making the correct one visible."""
 
-    if device.startswith("cuda:"):
+    if device.startswith("cuda"):
         changed_device = False
         # Normalize device BEFORE CUDA init
         if ":" in device:
