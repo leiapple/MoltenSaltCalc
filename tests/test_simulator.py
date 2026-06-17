@@ -49,7 +49,6 @@ def simulator():
     """Create a lightweight simulator instance."""
     return msc.MoltenSaltSimulator(
         model_name="mace",
-        model_parameters={"model_size": "small"},
         device="cpu",
         dispersion="DFTD3",
     )
@@ -60,7 +59,6 @@ def simulator_dftd2():
     """Create a lightweight simulator instance."""
     return msc.MoltenSaltSimulator(
         model_name="mace",
-        model_parameters={"model_size": "small"},
         device="cpu",
         dispersion="DFTD2",
         dispersion_damping="zero",
@@ -72,7 +70,6 @@ def simulator_dftd4():
     """Create a lightweight simulator instance."""
     return msc.MoltenSaltSimulator(
         model_name="mace",
-        model_parameters={"model_size": "small"},
         device="cpu",
         dispersion="DFTD4",
     )
@@ -723,9 +720,18 @@ def test_md_nvtberendsen_dftd4(simulator_dftd4, simple_salt, capsys, tmp_path):
 def test_invalid_model():
     """Test that the error raised when an invalid model is specified."""
     with pytest.raises(ValueError) as exc:
-        msc.MoltenSaltSimulator(model_name="gace", model_parameters={})
+        msc.MoltenSaltSimulator(model_name="gace")
 
     assert "Unknown model" in str(exc.value)
+
+
+def test_cpu_fallback():
+    """Test that the CPU is used when the GPU is not available."""
+    with pytest.warns(UserWarning) as w:
+        sim = msc.MoltenSaltSimulator(model_name="mace", device="cuda:arst")
+    assert sim.device == "cpu"
+    assert "Invalid CUDA device index: arst, falling back to 'cuda'" in str(w[0].message)
+    assert "CUDA not available, falling back to CPU." in str(w[1].message)
 
 
 def test_format_unknown_model_error_basic():

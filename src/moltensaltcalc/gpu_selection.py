@@ -16,7 +16,7 @@ def select_device(device: str) -> str:
                 os.environ["CUDA_VISIBLE_DEVICES"] = idx
                 changed_device = True
             else:
-                print(f"Invalid CUDA device index: {idx}, falling back to 'cuda'")
+                warnings.warn(f"Invalid CUDA device index: {idx}, falling back to 'cuda'", stacklevel=2)
         device = "cuda"
 
         import torch
