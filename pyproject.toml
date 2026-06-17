@@ -124,6 +124,13 @@ conflicts = [
     ]
 ]
 
+# Force uv to entirely ignore versions of torch below 2.4.0 globally
+# This prevents it from evaluating the legacy torch==2.0.1 requirements
+# attached to old tensorpotential packages.
+override-dependencies = [
+    "torch>=2.4.1"
+]
+
 # Due to equiformer_v3
 [tool.uv.extra-build-dependencies]
 torch-sparse = ["torch==2.4.1","setuptools"]
