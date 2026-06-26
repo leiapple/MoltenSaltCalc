@@ -1,6 +1,7 @@
 """MoltenSaltSimulator class for building and running molecular dynamics simulations."""
 
 import importlib
+import json
 import os
 import warnings
 from pathlib import Path
@@ -32,7 +33,7 @@ from moltensaltcalc.model_errors import (
     format_model_error,
     format_unknown_model_error,
 )
-from moltensaltcalc.registry import MODEL_REGISTRY
+from moltensaltcalc.registry import MODEL_METADATA, MODEL_REGISTRY
 
 
 class MoltenSaltSimulator:
@@ -161,8 +162,9 @@ class MoltenSaltSimulator:
 
         Raises:
             ValueError: If the model name provided is not available.
-            ValueError: If the calculator could not be setup.
             RuntimeError: If the calculator doesn't contain the model (e.g. wrong parameters).
+            ValueError: If the model_parameters are provided that are not known for the model.
+            ValueError: If the calculator could not be setup.
         """
         model_name = model_name.lower()
         model_parameters = dict(model_parameters or {})
@@ -179,6 +181,14 @@ class MoltenSaltSimulator:
 
         # Instantiate
         builder = MODEL_REGISTRY[model_name]
+        # Check that all given parameters are known
+        if model_parameters is not None:
+            metadata = MODEL_METADATA.get(model_name, {})
+            unknown_parameters = set(model_parameters.keys()) - set(metadata.keys())
+            if unknown_parameters:
+                raise ValueError(
+                    f"Unknown parameters for model '{model_name}': {', '.join(unknown_parameters)}.\nKnown parameters for {model_name}:\n{json.dumps(metadata, indent=4)}"
+                )
         try:
             calc = builder(model_parameters, device=self.device)
             calc = self._add_dispersion_calc(

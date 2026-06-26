@@ -51,7 +51,7 @@ def _build(params, device):
     )
     settings = params.get("InferenceSettings", turbo_settings)
 
-    # Fairchem resets the random seeds after loading the model, so we need to keep it
+    # Fairchem resets the rng seeds after loading the model, so we need to keep it
     rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
     predictor = pretrained_mlip.get_predict_unit(
         f"uma-{params.get('model_size', 's').lower()}-{params.get('model_version', '1p2').lower()}",

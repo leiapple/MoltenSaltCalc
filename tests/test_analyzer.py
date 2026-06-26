@@ -87,12 +87,12 @@ def test_get_eq_times():
 
 def test_trajectory_without_time_fs():
     """Test that for a trajectory without time_fs in the info dict, the default timestep is set and can be changed."""
-    with pytest.warns(UserWarning) as w:
+    with pytest.warns(UserWarning) as ws:
         ana = msc.MoltenSaltAnalyzer(
             traj_files_npt=[BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K_no_time_fs.traj"],
             temperatures_npt=[1100],
         )
-    assert "WARNING: No time_fs found in" in str(w[0].message)
+    assert any("WARNING: No time_fs found in" in str(w.message) for w in ws)
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
     ana.recompute_times(timestep_fs=5.0)
     assert np.isclose(ana.timestep_fs, 5.0)
@@ -253,7 +253,7 @@ def test_compute_viscosity(analyzer):
 
 def test_init_missing_traj_file():
     """Test that a warning is raised when a trajectory file doesn't exist."""
-    with pytest.warns(UserWarning) as w:
+    with pytest.warns(UserWarning) as ws:
         analyzer = msc.MoltenSaltAnalyzer(
             traj_files_npt=[
                 BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj",
@@ -262,12 +262,12 @@ def test_init_missing_traj_file():
             temperatures_npt=[1100, 1],
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"  # type: ignore
-    assert "Trajectory file" in str(w[0].message) and "nonexistent.traj" in str(w[0].message)
+    assert any("Trajectory file" in str(w.message) and "nonexistent.traj" in str(w.message) for w in ws)
 
 
 def test_invalid_traj_file():
     """Test that a warning is raised when a trajectory file is invalid."""
-    with pytest.warns(UserWarning) as w:
+    with pytest.warns(UserWarning) as ws:
         analyzer = msc.MoltenSaltAnalyzer(
             traj_files_npt=[
                 BASE / "test_analyzer_trajectories" / "npt_NaCl_1100K.traj",
@@ -276,7 +276,7 @@ def test_invalid_traj_file():
             temperatures_npt=[1100, 1],
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"  # type: ignore
-    assert "Error loading trajectory file" in str(w[0].message) and "invalid.traj" in str(w[0].message)
+    assert any("Error loading trajectory file" in str(w.message) and "invalid.traj" in str(w.message) for w in ws)
 
 
 def test_invalid_temperature(analyzer):

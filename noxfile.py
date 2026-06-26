@@ -5,29 +5,21 @@ from pathlib import Path
 
 import nox
 
-nox.options.envdir = Path.home() / ".nox"
+import moltensaltcalc as msc
 
-MODELS = [
-    "7net",
-    "chgnet",
-    "fairchem",
-    "grace-nodisp",
-    "mace",
-    "mattersim",
-    "nequip",
-    "nequix",
-    "upet",
-    "equiformer_v3",
-]
+nox.options.envdir = Path.home() / ".nox"
 
 
 @nox.session(name="umlip", venv_backend="uv", reuse_venv=True)
-@nox.parametrize("model", MODELS)
+@nox.parametrize("model", msc.available_models())
 def test_umlip(session, model):
     """Test uMLIPs specified in the model parameter."""
 
     if "HF_TOKEN" in os.environ:
         session.env["HF_TOKEN"] = os.environ["HF_TOKEN"]
+
+    if model.lower() == "grace":
+        model = "grace-nodisp"
 
     session.install("pytest")
     session.install(f".[{model}]")

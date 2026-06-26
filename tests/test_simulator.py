@@ -7,6 +7,7 @@ import re
 
 import numpy as np
 import pytest
+import torch
 from ase.io import Trajectory
 
 import moltensaltcalc as msc
@@ -725,8 +726,9 @@ def test_invalid_model():
     assert "Unknown model" in str(exc.value)
 
 
-def test_cpu_fallback():
+def test_cpu_fallback(monkeypatch):
     """Test that the CPU is used when the GPU is not available."""
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     with pytest.warns(UserWarning) as w:
         sim = msc.MoltenSaltSimulator(model_name="mace", device="cuda:arst")
     assert sim.device == "cpu"

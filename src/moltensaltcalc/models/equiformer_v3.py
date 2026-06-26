@@ -36,7 +36,7 @@ def clean_model(model_path: str):
     metadata={
         "model_path": {
             "type": "str",
-            "choices": ["omat24_direct", "omat24_gradient", "omat24-mptrj-salex_gradient", "mptrj_gradient", "..."],
+            "choices": AVAILABLE_MODELS + ["..."],
             "description": f"Path to a local file path (e.g. 'models/omat24_direct.pt') or a string specifier ({AVAILABLE_MODELS}). Models can be downloaded from https://huggingface.co/{MODEL_HF_ID}/tree/main/checkpoint, which is also where the string specifiers query to download the model.",
             "default": "omat24_direct",
         },
@@ -58,7 +58,7 @@ def _build(params, device):
     from equiformer_v3.core import OCPCalculator
     from huggingface_hub import hf_hub_download
 
-    # Fairchem resets the random seeds when loading the model, so we need to keep it
+    # Fairchem resets the rng seeds when loading the model, so we need to keep it
     rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
 
     # Get the pre-trained model from HuggingFace

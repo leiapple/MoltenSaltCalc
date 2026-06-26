@@ -168,8 +168,60 @@ Pre-trained universal models from the [UPET project](https://github.com/lab-cosm
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
 | `model_task` | `str` | `omat`, `oam`, `mad`, `omatpes`, `omad`, `spice` | `omat` | Task the model is trained for |
-| `model_size` | `str` | `xs`, `s`, `m`, `l`, `xl` | `s` | Size of the UPET model.
+| `model_size` | `str` | `xs`, `s`, `m`, `l`, `xl` | `s` | Size of the UPET model. |
 | `model_version` | `str` | `latest`, `v0.1.0`, `v0.2.0` | `latest` | Version of the pretrained UPET model |
 | `checkpoint_path` | `str` | `...` | `None` | Path to a pretrained UPET model checkpoint file, optional |
+
+---
+
+## EquiFormer V3
+
+Pre-trained universal models from [EquiFormer V3](https://github.com/atomicarchitects/equiformer_v3), as packaged in [equiformer-v3 python package](https://github.com/daniisler/equiformer_v3/tree/feature-python-package).
+
+### Parameters
+
+| Parameter | Type | Choices | Default | Description |
+|-|-|-|-|-|
+| `model_path` | `str` | `omat24_direct`, `omat24_gradient`, `omat24-mptrj-salex_gradient`, `mptrj_gradient` | `omat24_direct` | Path to a local file path (e.g. 'models/omat24_direct.pt') or a string specifier (`omat24_direct`). |
+| `model_revision` | `str` | `main` | `main` | Revision of the model to download from HuggingFace. |
+| `dont_clean_model` | `bool` | `False` | `False` | Whether to skip cleaning the model by stripping the `_orig_mod.module.` from the keys (necessary for the current model version). |
+
+---
+
+## EquFlash / GGNN
+
+Pre-trained universal models from the [GGNN](https://github.com/SamsungDS/GGNN) project, as packaged in [GGNN python package](https://github.com/daniisler/GGNN/tree/feature-python-package).
+
+### Parameters
+
+| Parameter | Type | Choices | Default | Description |
+|-|-|-|-|-|
+| `model_path` | `str` | `equflash`, `equflash_v2` | `None` | Path to a local file path (e.g. 'models/GGNN.pt') or a string specifier. |
+
+---
+
+## TACE
+
+Models from the [TACE](https://github.com/xvzemin/tace) project with pre-trained models from [TACE-foundations](https://github.com/xvzemin/tace-foundations).
+
+### Parameters
+
+| Parameter | Type | Choices | Default | Description |
+|-|-|-|-|-|
+| `model_name` | `str` | `TACE-v1-OMat24-M`, `TACE-v1-OAM-M`, `TACE-v1-LES-REICO-5-PdAgCHO.pt` | `TACE-v1-OMat24-M` | Name of pre-trained model or path to the checkpoint, deployed model or the model itself. |
+
+---
+
+## Orbital Models
+
+Pre-trained universal models from the [ORB Models](https://github.com/orbital-materials/orb-models) project.
+
+### Parameters
+
+| Parameter | Type | Choices | Default | Description |
+|-|-|-|-|-|
+| `model_task` | `str` | `omat`, `mpa` | `omat` | Task the model is trained for. |
+| `max_neighbors` | `str` | `20`, `inf` | `20` | Maximum number of neighbors to consider for the model. |
+| `model_type` | `str` | `direct`, `conservative` | `conservative` | How inference of the forces is achieved. |
 
 ---

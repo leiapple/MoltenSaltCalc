@@ -16,21 +16,28 @@ def select_device(device: str) -> str:
                 os.environ["CUDA_VISIBLE_DEVICES"] = idx
                 changed_device = True
             else:
-                warnings.warn(f"Invalid CUDA device index: {idx}, falling back to 'cuda'", stacklevel=2)
+                warnings.warn(
+                    f"Invalid CUDA device index: {idx}, falling back to 'cuda' instead of {device}.", stacklevel=2
+                )
         device = "cuda"
 
-        import torch
+        try:
+            import torch
 
-        if not torch.cuda.is_available():
-            warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
-            device = "cpu"
+            if not torch.cuda.is_available():
+                warnings.warn("CUDA not available, falling back to CPU.", stacklevel=2)
+                device = "cpu"
 
-        if changed_device:
-            print("\n\nCHANGED DEVICE:\n")
-            print("Visible device count:", torch.cuda.device_count())
-            print("Current device index:", torch.cuda.current_device())
-            print("Current device name:", torch.cuda.get_device_name(0))
-            print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
-            print("\n\n")
+            if changed_device:
+                print("\n\nCHANGED DEVICE:\n")
+                print("Visible device count:", torch.cuda.device_count())
+                print("Current device index:", torch.cuda.current_device())
+                print("Current device name:", torch.cuda.get_device_name(0))
+                print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
+                print("\n\n")
+
+        except ImportError:
+            warnings.warn(f"torch not available, falling back to 'cuda' instead of {device}.", stacklevel=2)
+            device = "cuda"
 
     return device

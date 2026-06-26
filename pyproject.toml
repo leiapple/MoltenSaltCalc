@@ -36,7 +36,7 @@ classifiers = [
 
 # Core dependencies
 dependencies = [
-    "ase>=3.22,<4.0",
+    "ase>=3.27,<4.0",
     "numpy>=1.26,<3.0",
     "scipy>=1.10,<2.0",
     "myplots>=0.1.1",
@@ -56,6 +56,9 @@ nequix = ["nequix","torch","torch-dftd"]
 upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
 equiformer_v3 = ["equiformer-v3","torch","torch-dftd"]
+orbitals = ["orb-models","torch","torch-dftd"]
+tace = ["tace","torch","torch-dftd"]
+equflash = ["equflash; sys_platform == 'linux' and python_version >= '3.12'","torch-dftd"]
 
 # DFTD4 variants
 dftd4 = ["dftd4"]
@@ -67,10 +70,13 @@ mace-nodisp = ["mace-torch","cuequivariance","cuequivariance-torch"]
 mattersim-nodisp = ["mattersim"]
 7net-nodisp = ["sevenn"]
 nequip-nodisp = ["nequip"]
-nequix-nodisp = ["nequix"]
+nequix-nodisp = ["nequix","torch"]
 upet-nodisp = ["upet"]
 chgnet-nodisp = ["chgnet"]
-equiformer_v3-nodisp = ["equiformer-v3"]
+equiformer_v3-nodisp = ["equiformer-v3","torch"]
+orbitals-nodisp = ["orb-models"]
+tace-nodisp = ["tace"]
+equflash-nodisp = ["equflash; sys_platform == 'linux' and python_version >= '3.12'"]
 
 dev = [
     "nox",
@@ -109,6 +115,9 @@ conflicts = [
         { extra = "upet" },
         { extra = "chgnet" },
         { extra = "equiformer_v3" },
+        { extra = "orbitals" },
+        { extra = "tace" },
+        { extra = "equflash" },
 
         # No Dispersion Variants
         { extra = "grace-nodisp" },
@@ -121,8 +130,19 @@ conflicts = [
         { extra = "upet-nodisp" },
         { extra = "chgnet-nodisp" },
         { extra = "equiformer_v3-nodisp" },
+        { extra = "orbitals-nodisp" },
+        { extra = "tace-nodisp" },
+        { extra = "equflash-nodisp" },
     ]
 ]
+
+# For EquFlash
+index-strategy = "unsafe-best-match"
+find-links = ["https://data.pyg.org/whl/torch-2.9.1+cu126.html"]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
 
 # Due to equiformer_v3
 [tool.uv.extra-build-dependencies]
@@ -230,5 +250,10 @@ ignored-modules = [
     "dftd4",
     "equiformer_v3",
     "huggingface_hub",
+    "requests",
+    "tqdm",
+    "GGNN",
+    "orb_models",
+    "tace",
 ]
 generated-members = ["GRACEModels.*"]
