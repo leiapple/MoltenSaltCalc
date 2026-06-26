@@ -29,7 +29,7 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
-Tested on Python 3.10, 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), grace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
+Tested on Python 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), grace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
 
 By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator at all, install with `-nodisp` instead, e.g. `pip install moltensaltcalc[grace-nodisp]`. If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g. `pip install moltensaltcalc[grace-nodisp,dftd4]`.
 
@@ -92,6 +92,30 @@ pip install moltensaltcalc[upet]
 pip install moltensaltcalc[chgnet]
 ```
 
+### equiformer_v3
+
+```bash
+pip install moltensaltcalc[equiformer_v3]
+```
+
+### ORB-V3 (orbitals)
+
+```bash
+pip install moltensaltcalc[orbitals]
+```
+
+### TACE
+
+```bash
+pip install moltensaltcalc[tace]
+```
+
+### EquFlash
+
+```bash
+pip install moltensaltcalc[equflash]
+```
+
 ### Development
 
 If you want to contribute or make modifications to the code, clone the repo and install in edit mode. For further details, please check our [contributing guidelines](https://github.com/leiapple/moltensaltcalc/blob/main/CONTRIBUTING.md).
@@ -121,7 +145,7 @@ from moltensaltcalc import MoltenSaltSimulator, MoltenSaltAnalyzer
 
 np.random.seed(42)  # Ensure reproducibility (initial random placements)
 
-sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"})
+sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"}, dispersion=None)
 atoms = sim.build_system(
     salt_anion=["F", "Cl"],
     salt_cation=["Na"],
@@ -181,7 +205,12 @@ moltensaltcalc/
 |       ├── mattersim.py
 |       ├── nequip.py
 |       ├── nequix.py
-|       └── upet.py
+|       ├── upet.py
+|       ├── equiformer_v3.py
+|       ├── orbitals.py
+|       ├── tace.py
+|       ├── vasp.py
+|       └── equflash.py
 ├── demo/
 │   ├── simulator.ipynb     # Demo notebook for the simulator
 │   ├── analyzer.ipynb      # Demo notebook for the analyzer

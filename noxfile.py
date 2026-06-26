@@ -21,6 +21,9 @@ def test_umlip(session, model):
     if model.lower() == "grace":
         model = "grace-nodisp"
 
+    if model.lower() == "vasp":
+        return
+
     session.install("pytest")
     session.install(f".[{model}]")
     session.run(
