@@ -55,7 +55,7 @@ nequip = ["nequip","torch","torch-dftd"]
 nequix = ["nequix","torch","torch-dftd"]
 upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
-equiformer_v3 = ["equiformer-v3","torch","torch-dftd"]
+equiformer_v3 = ["equiformer-v3>=0.0.2","torch==2.4.1","torch-dftd"]
 orbitals = ["orb-models","torch","torch-dftd"]
 tace = ["tace","torch","torch-dftd"]
 equflash = ["equflash; sys_platform == 'linux' and python_version >= '3.12'","torch-dftd"]
@@ -73,7 +73,7 @@ nequip-nodisp = ["nequip"]
 nequix-nodisp = ["nequix","torch"]
 upet-nodisp = ["upet"]
 chgnet-nodisp = ["chgnet"]
-equiformer_v3-nodisp = ["equiformer-v3","torch"]
+equiformer_v3-nodisp = ["equiformer-v3>=0.0.2","torch==2.4.1"]
 orbitals-nodisp = ["orb-models"]
 tace-nodisp = ["tace"]
 equflash-nodisp = ["equflash; sys_platform == 'linux' and python_version >= '3.12'"]
@@ -138,18 +138,11 @@ conflicts = [
 
 # For EquFlash
 index-strategy = "unsafe-best-match"
-find-links = ["https://data.pyg.org/whl/torch-2.9.1+cu126.html"]
+find-links = ["https://data.pyg.org/whl/torch-2.4.1+cu121.html","https://data.pyg.org/whl/torch-2.9.1+cu126.html"]
 
 [[tool.uv.index]]
 name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
-
-# Due to equiformer_v3
-[tool.uv.extra-build-dependencies]
-torch-sparse = ["torch==2.4.1","setuptools"]
-torch-scatter = ["torch==2.4.1","setuptools"]
-torch-cluster = ["torch==2.4.1","setuptools"]
-torch-spline-conv = ["torch==2.4.1","setuptools"]
 
 # UV build
 [tool.uv_build]
