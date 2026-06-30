@@ -10,7 +10,7 @@ import moltensaltcalc as msc
 nox.options.envdir = Path.home() / ".nox"
 
 
-@nox.session(name="umlip", venv_backend="uv", reuse_venv=True)
+@nox.session(name="umlip", venv_backend="uv", reuse_venv=True, python="3.12.13")
 @nox.parametrize("model", msc.available_models())
 def test_umlip(session, model):
     """Test uMLIPs specified in the model parameter."""
@@ -24,8 +24,14 @@ def test_umlip(session, model):
     if model.lower() == "vasp":
         return
 
+    # Check the python version
+    session.run("python", "-c", "import sys; print(sys.executable); print(sys.version)")
+
+    # Install the dependencies
     session.install("pytest")
     session.install(f".[{model}]")
+
+    # Run the short test
     session.run(
         "pytest",
         "tests/test_uMLIPs.py",
