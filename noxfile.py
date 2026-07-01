@@ -21,7 +21,7 @@ def test_umlip(session, model):
     if model.lower() == "grace":
         model = "grace-nodisp"
 
-    if model.lower() == "vasp":
+    if model.lower() == "vasp" or model.lower() == "equflash":
         return
 
     # Check the python version

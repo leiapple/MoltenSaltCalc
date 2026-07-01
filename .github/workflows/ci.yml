@@ -103,6 +103,14 @@ jobs:
           echo "HF_HOME=$HOME/.cache/huggingface" >> $GITHUB_ENV
           echo "HF_HUB_CACHE=$HOME/.cache/huggingface/hub" >> $GITHUB_ENV
 
+      - name: Cache nox environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.nox
+          key: nox-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'uv.lock', 'noxfile.py') }}
+          restore-keys: |
+            nox-${{ runner.os }}-
+
       - name: Run nox
         run: uv run nox -s umlip
         env:
