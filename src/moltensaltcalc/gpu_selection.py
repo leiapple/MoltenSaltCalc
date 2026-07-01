@@ -39,5 +39,9 @@ def select_device(device: str) -> str:
         except ImportError:
             warnings.warn(f"torch not available, falling back to 'cuda' instead of {device}.", stacklevel=2)
             device = "cuda"
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        os.environ["JAX_PLATFORMS"] = "cpu"
+        os.environ["JAX_PLATFORM_NAME"] = "cpu"
 
     return device

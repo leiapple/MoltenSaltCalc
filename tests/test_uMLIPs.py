@@ -1,5 +1,6 @@
 """Test for the uMLIPs with conflicting dependencies => run with nox -s."""
 
+import warnings
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ BASE = Path(__file__).parent
 def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     """Test that the uMLIPs are run with the minimal test that they don't crash and produce readable output."""
     model = request.config.getoption("--model")
+    gpu_available = request.config.getoption("--gpu_available", default=False)
 
     if model is None:
         pytest.skip(
@@ -26,9 +28,16 @@ def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     sim = msc.MoltenSaltSimulator(
         model_name=model.replace("-nodisp", ""),
         model_parameters=params,
-        device="cpu",
+        device="cuda" if gpu_available else "cpu",
         dispersion=None if "-nodisp" in model else "DFTD3",
     )
+
+    # Equflash only works on GPU, so we cannot run it in GitHub Actions
+    if model == "equflash" and not gpu_available:
+        warnings.warn(
+            "Equflash does not work on CPU, skipping MD simulation test after initializing the model.", stacklevel=2
+        )
+        return
 
     atoms = sim.build_system(
         ["F"],
