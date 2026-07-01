@@ -2,25 +2,34 @@
 
 from moltensaltcalc.registry import register_model
 
+AVAILABLE_MODELS = [
+    "uma-s-1p2",
+    "uma-s-1p1",
+    "uma-m-1p1",
+    "esen-md-direct-all-omol",
+    "esen-sm-conserving-all-omol",
+    "esen-sm-direct-all-omol",
+    "allscaip-md-conserving-all-omol",
+    "allscaip-md-direct-all-omol",
+    "esen-sm-conserving-all-oc25",
+    "esen-md-direct-all-oc25",
+    "esen-sm-filtered-odac25",
+    "esen-sm-full-odac25",
+]
+
 
 @register_model(
     "fairchem",
     metadata={
-        "model_size": {
+        "model_name": {
             "type": "str",
-            "choices": ["s", "m"],
-            "description": "Size of the FairChem model. Size 'm' is currently (04.2026) only supported for version '1p1'.",
-            "default": "s",
-        },
-        "model_version": {
-            "type": "str",
-            "choices": ["1p1", "1p2", "1 (for older versions of fairchem-core)"],
+            "choices": AVAILABLE_MODELS,
             "description": "Version of the pretrained model.",
-            "default": "1p2",
+            "default": "uma-s-1p2",
         },
         "model_task": {
             "type": "str",
-            "choices": ["omc", "omol", "odac", "oc20", "omat"],
+            "choices": ["omc", "omol", "odac", "oc20", "omat", ""],
             "description": "Task the model is trained for.",
             "default": "omat",
         },
@@ -54,14 +63,14 @@ def _build(params, device):
     # Fairchem resets the rng seeds after loading the model, so we need to keep it
     rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
     predictor = pretrained_mlip.get_predict_unit(
-        f"uma-{params.get('model_size', 's').lower()}-{params.get('model_version', '1p2').lower()}",
+        params.get("model_name", "uma-s-1p2").lower(),
         device=device,
         inference_settings=settings,
     )
     np.random.seed(rng_seed_before)
     random.seed(rng_seed_before)
-
+    task_name = params.get("model_task", "omat").lower()
     return FAIRChemCalculator(
         predictor,
-        task_name=params.get("model_task", "omat").lower(),
+        task_name=task_name if task_name != "" else None,
     )

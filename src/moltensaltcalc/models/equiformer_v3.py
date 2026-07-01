@@ -36,7 +36,7 @@ def clean_model(model_path: str):
     metadata={
         "model_path": {
             "type": "str",
-            "choices": AVAILABLE_MODELS + ["..."],
+            "choices": AVAILABLE_MODELS,
             "description": f"Path to a local file path (e.g. 'models/omat24_direct.pt') or a string specifier ({AVAILABLE_MODELS}). Models can be downloaded from https://huggingface.co/{MODEL_HF_ID}/tree/main/checkpoint, which is also where the string specifiers query to download the model.",
             "default": "omat24_direct",
         },

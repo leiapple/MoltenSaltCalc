@@ -14,7 +14,7 @@ from moltensaltcalc.registry import register_model
         },
         "xc": {
             "type": "str",
-            "choices": ["PBE", "LDA", "revPBE", "RPBE", "..."],
+            "choices": ["PBE", "LDA", "revPBE", "RPBE"],
             "description": "Exchange-correlation functional.",
             "default": "PBE",
         },
