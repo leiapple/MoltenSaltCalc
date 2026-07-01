@@ -224,7 +224,6 @@ moltensaltcalc/
 |   └── test_uMLIP_precompiled/  # Precompiled models used by the tests
 ├── noxfile.py              # Nox configuration for uMLIP testing in different environments
 ├── pyproject.toml          # Build configuration
-├── requirements_*.txt      # These files contain exact dependency snapshots used during testing for each MLIP backend.
 ├── .gitattributes
 ├── .gitignore              # Gitignore file: Python template + some custom rules at the end
 ├── .pre-commit-config.yaml # Pre-commit configuration
