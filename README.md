@@ -118,16 +118,22 @@ pip install moltensaltcalc[equflash]
 
 ### Development
 
-If you want to contribute or make modifications to the code, clone the repo and install in edit mode. For further details, please check our [contributing guidelines](https://github.com/leiapple/moltensaltcalc/blob/main/CONTRIBUTING.md).
+If you want to contribute or make modifications to the code, lfs (to include the large `uv.lock` file) clone the repo and install in edit mode. For further details, please check our [contributing guidelines](https://github.com/leiapple/moltensaltcalc/blob/main/CONTRIBUTING.md).
 
 ```bash
-git clone https://github.com/leiapple/moltensaltcalc.git
+git lfs clone https://github.com/leiapple/moltensaltcalc.git
 cd moltensaltcalc
 python3 -m venv .venv        # Or any other name
 source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
 pip install -e .[dev,grace]  # Installs the selected MLIP backend and all development dependencies (pytest, etc.) in editable mode
+```
+
+To upload a changed lockfile to GitHub, run
+
+```bash
+git lfs push origin --all
 ```
 
 ## Usage
