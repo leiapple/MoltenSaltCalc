@@ -53,14 +53,15 @@ jobs:
       - name: Cache uv package store
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/uv
-          key: uv-pytest-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-pytest-${{ runner.os }}-
+          path: /home/runner/work/_temp/uv-python-dir
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
 
       - name: Install dependencies
         run: uv sync --extra dev --extra mace --extra dftd4
+
+      - name: Set mace cache directory
+        run: |
+          echo "XDG_CACHE_HOME=$HOME/.cache" >> $GITHUB_ENV
 
       - name: Cache ML dependencies
         uses: actions/cache@v4
@@ -115,11 +116,8 @@ jobs:
       - name: Cache uv package store
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/uv
+          path: /home/runner/work/_temp/uv-python-dir
           key: uv-nox-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-nox-${{ runner.os }}-
 
       - name: Run nox
         run: uv run nox -s umlip
