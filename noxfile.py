@@ -28,9 +28,8 @@ def test_umlip(session, model):
     session.run("python", "-c", "import sys; print(sys.executable); print(sys.version)")
 
     # Install the dependencies
-    # session.install("pytest")
-    # session.install(f".[{model}]")
-    session.run("uv", "sync", "--active", "--extra", "dev", "--extra", model)
+    session.install("pytest")
+    session.install(f".[{model}]")
 
     # Run the short test
     session.run(
