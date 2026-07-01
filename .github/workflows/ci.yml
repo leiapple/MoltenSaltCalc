@@ -55,6 +55,8 @@ jobs:
         with:
           path: /home/runner/work/_temp/setup-uv-cache
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
 
       - name: Install dependencies
         run: uv sync --extra dev --extra mace --extra dftd4
@@ -67,9 +69,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache
-          key: cache-${{ runner.os }}-ml-v1
-          restore-keys: |
-            cache-${{ runner.os }}-ml-
+          key: cache-pytest-${{ runner.os }}
 
       - name: Run tests
         run: uv run pytest --cov=./ --cov-report=xml --cov-report=term-missing
@@ -113,11 +113,19 @@ jobs:
           echo "HF_HOME=$HOME/.cache/huggingface" >> $GITHUB_ENV
           echo "HF_HUB_CACHE=$HOME/.cache/huggingface/hub" >> $GITHUB_ENV
 
-      - name: Cache uv package store
+      - name: Cache downloaded models from .cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache
+          key: cache-nox-${{ runner.os }}
+
+      - name: Cache uv package store (reuse from the test job)
         uses: actions/cache@v4
         with:
           path: /home/runner/work/_temp/setup-uv-cache
-          key: uv-nox-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
 
       - name: Run nox
         run: uv run nox -s umlip
