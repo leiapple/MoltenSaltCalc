@@ -7,12 +7,12 @@ from matplotlib.patches import FancyBboxPatch
 # CONFIGURATION
 # =============================================================================
 
-FONT_SIZE = 9
+FONT_SIZE = 8
 
 p.use_style(doc_fontsize=FONT_SIZE)
 
 # Figure
-FIGSIZE = (8, 6)
+FIGSIZE = (8, 7)
 
 # Box geometry
 BOX_WIDTH = 0.30
@@ -48,10 +48,13 @@ BOX_EDGE = "#2b2b2b"
 
 MD_FACE = "#eef2ff"
 
-ARROW_COLOR = "#333333"
+ARROW_COLOR = "#dbe7ff"
 
 MARKER_FACE = "#dbe7ff"
 MARKER_EDGE = "#444444"
+
+TITLE_COLOR = "#198803"
+SUBTITLE_COLOR = "#941A1A"
 
 # Line widths
 BOX_LINEWIDTH = 1.2
@@ -167,7 +170,7 @@ load_box = add_box(
     ax,
     COLUMN_X,
     Y_LOAD_MLIP,
-    "Load MLIP calculator\n(lazy initialization)",
+    "Load the MLIP calculator\n(lazy initialization)",
     icon="D",  # diamond = MLIP
 )
 
@@ -175,7 +178,7 @@ rocksalt_box = add_box(
     ax,
     COLUMN_X,
     Y_ROCKSALT,
-    "Build rocksalt structure\n(prevents like-charge clustering)",
+    "Build the rocksalt structure\n(prevents like-charge clustering)",
     icon="s",  # square = lattice
 )
 
@@ -183,7 +186,7 @@ remove_box = add_box(
     ax,
     COLUMN_X,
     Y_REMOVE,
-    "Random atom removal\n(target composition)",
+    "Random atom removal\n(to exact target composition)",
     icon="X",  # vacancy/removal
 )
 
@@ -191,7 +194,7 @@ init_box = add_box(
     ax,
     COLUMN_X,
     Y_INITIALIZE,
-    "Maxwell–Boltzmann initialization\n(zero COM momentum)",
+    "Maxwell-Boltzmann initialization\n(zero COM momentum)",
     icon="o",  # temperature
 )
 
@@ -282,49 +285,45 @@ add_arrow(ax, branch_start, nvt_target)
 # GROUP LABELS
 # =============================================================================
 
-ax.text(
-    GROUP_X,
-    0.92,
-    "System setup",
-    weight="bold",
-    fontsize=FONT_SIZE - 2,
-)
+ax.text(GROUP_X, 0.92, "System Setup", weight="bold", fontsize=FONT_SIZE - 2, color=TITLE_COLOR)
 
 ax.text(
     GROUP_X,
     0.86,
     "Construct initial molten salt\nconfiguration",
-    color="#444444",
+    color=SUBTITLE_COLOR,
 )
 
 ax.text(
     GROUP_X,
     0.46,
-    "Molecular dynamics",
+    "Molecular Dynamics",
     weight="bold",
     fontsize=FONT_SIZE - 2,
+    color=TITLE_COLOR,
 )
 
 ax.text(
     GROUP_X,
     0.40,
     "Volume equilibration and\nproduction MD",
-    color="#444444",
+    color=SUBTITLE_COLOR,
 )
 
 ax.text(
     GROUP_X,
     0.22,
-    "Property analysis",
+    "Property Analysis",
     weight="bold",
     fontsize=FONT_SIZE - 2,
+    color=TITLE_COLOR,
 )
 
 ax.text(
     GROUP_X,
     0.18,
     "Extract observables",
-    color="#444444",
+    color=SUBTITLE_COLOR,
 )
 
 p.save(fig, Path(__file__).parent.parent / "imgs" / "workflow_diagram.png")

@@ -29,9 +29,9 @@ Daniel Isler, Lei Zhang, Max van Brenk, Süleyman Er
 
 Create a virtual environment and install the package with the desired MLIP backend. Each MLIP backend has separate and potentially conflicting dependencies. Therefore, only one backend should be installed per environment.
 
-Tested on Python 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), grace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
+Tested on Python 3.11, 3.12, 3.13 and 3.14. All uMLIPs work on Python 3.12, but some of them do not work on the lower / higher versions. E.g. the fairchem (uma), mace and upet uMLIPs do not work with Python 3.10. On python 3.14, so far only chgnet, mattersim and upet work.
 
-By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator at all, install with `-nodisp` instead, e.g. `pip install moltensaltcalc[grace-nodisp]`. If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g. `pip install moltensaltcalc[grace-nodisp,dftd4]`.
+By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator at all, install with `-nodisp` instead, e.g. `pip install moltensaltcalc[mace-nodisp]`. If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g. `pip install moltensaltcalc[mace-nodisp,dftd4]`.
 
 ### GRACE
 
@@ -41,7 +41,7 @@ source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
 
-pip install moltensaltcalc[grace]
+pip install moltensaltcalc[mace]
 ```
 
 ### FAIRCHEM
@@ -127,7 +127,7 @@ python3 -m venv .venv        # Or any other name
 source .venv/bin/activate   # Linux/macOS
 # or
 .venv\Scripts\activate      # Windows
-pip install -e .[dev,grace]  # Installs the selected MLIP backend and all development dependencies (pytest, etc.) in editable mode
+pip install -e .[dev,mace]  # Installs the selected MLIP backend and all development dependencies (pytest, etc.) in editable mode
 ```
 
 To upload a changed lockfile to GitHub, run
@@ -151,7 +151,14 @@ from moltensaltcalc import MoltenSaltSimulator, MoltenSaltAnalyzer
 
 np.random.seed(42)  # Ensure reproducibility (initial random placements)
 
-sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"}, dispersion=None)
+sim = MoltenSaltSimulator(
+    model_name="mace",  # Use the MACE model
+    model_parameters={
+        "model_size": "small",  # Use the MACE-MP-0a small model
+        "model_task": "Default"
+    },
+    dispersion=None  # Disable dispersion
+)
 atoms = sim.build_system(
     salt_anion=["F", "Cl"],
     salt_cation=["Na"],
@@ -171,8 +178,8 @@ analyzer = MoltenSaltAnalyzer(
     traj_files_npt=["npt_simulation.traj"],  # Trajectory file(s)
     temperatures_npt=[1100],  # K
 )
-density = analyzer.compute_eq_density(T=1100)  # 1.31 g/cm³
-C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.2)  # 0.19 J/g/K
+density = analyzer.compute_eq_density(T=1100)  # 1.68 g/cm³
+C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.2)  # 0.07 J/g/K
 ```
 
 ### Demo
@@ -192,9 +199,17 @@ Before starting the MD simulation, the velocities are initialized with a Maxwell
 ![Workflow](imgs/workflow_diagram.png)
 
 ## Project Structure
+
 ```
 moltensaltcalc/
-├── moltensaltcalc/         # Source code
+├── .github/workflows/ci.yml# CI workflow
+├── badges/coverage.svg     # Coverage badge
+├── demo/
+│   ├── simulator.ipynb     # Demo notebook for the simulator
+│   ├── analyzer.ipynb      # Demo notebook for the analyzer
+|   └── demo_simulation_results/ # Example trajectory used by the demo
+├── docs/...                # Documentation
+├── src/moltensaltcalc/     # Source code
 │   ├── __init__.py         # Package exports and available models
 │   ├── simulator.py        # MoltenSaltSimulator class
 │   ├── analyzer.py         # MoltenSaltAnalyzer class
@@ -204,23 +219,25 @@ moltensaltcalc/
 |   └── models/             # MLIP model implementations
 |       ├── __init__.py
 |       ├── 7net.py
+|       ├── alphanet.py
 |       ├── chgnet.py
+|       ├── deepmd.py
+|       ├── eqnorm.py
+|       ├── equflash.py
+|       ├── equiformer_v3.py
 |       ├── fairchem.py
 |       ├── grace.py
+|       ├── hienet.py
 |       ├── mace.py
+|       ├── matgl.py
+|       ├── matris.py
 |       ├── mattersim.py
 |       ├── nequip.py
 |       ├── nequix.py
-|       ├── upet.py
-|       ├── equiformer_v3.py
 |       ├── orbitals.py
 |       ├── tace.py
-|       ├── vasp.py
-|       └── equflash.py
-├── demo/
-│   ├── simulator.ipynb     # Demo notebook for the simulator
-│   ├── analyzer.ipynb      # Demo notebook for the analyzer
-|   └── demo_simulation_results/ # Example trajectory used by the demo
+|       ├── upet.py
+|       └── vasp.py
 ├── tests/                  # PyTests
 │   ├── __init__.py
 │   ├── test_simulator.py   # Tests for the simulator using the GRACE uMLIP
@@ -228,15 +245,18 @@ moltensaltcalc/
 |   ├── test_uMLIPs.py      # Tests for the different uMLIP backends
 │   ├── test_analyzer_trajectories/  # Example trajectories used by the tests
 |   └── test_uMLIP_precompiled/  # Precompiled models used by the tests
-├── noxfile.py              # Nox configuration for uMLIP testing in different environments
-├── pyproject.toml          # Build configuration
 ├── .gitattributes
 ├── .gitignore              # Gitignore file: Python template + some custom rules at the end
+├── .readthedocs.yaml       # ReadTheDocs configuration
 ├── .pre-commit-config.yaml # Pre-commit configuration
 ├── CITATION.cff            # Citation file
 ├── CONTRIBUTING.md         # Contributing guidelines
 ├── LICENSE                 # License file
-└── README.md               # This file
+├── mkdocs.yml              # MkDocs configuration
+├── noxfile.py              # Nox configuration for uMLIP testing in different environments
+├── pyproject.toml          # Build configuration
+├── README.md               # This file
+└── uv.lock                 # Uv lock file (stored in git lfs, get with `git lfs clone`)
 ```
 
 ## License
