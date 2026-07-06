@@ -24,6 +24,18 @@ from moltensaltcalc.registry import register_model
             "description": "How inference of the forces is achieved.",
             "default": "conservative",
         },
+        "model_version": {
+            "type": "str",
+            "choices": ["v2", "v3"],
+            "description": "Version of the model.",
+            "default": "v3",
+        },
+        "orb_v2_task": {
+            "type": "str",
+            "choices": ["", "_mptraj_only", "_d3", "_d3_sm", "_d3_xs"],
+            "description": "Task the model is trained for, only applied if model_version is v2.",
+            "default": "",
+        },
     },
 )
 def _build(params, device):
@@ -35,7 +47,9 @@ def _build(params, device):
     max_neigh = params.get("max_neighbors", "inf")
     model_type = params.get("model_type", "conservative")
     model_name = f"orb_v3_{model_type}_{max_neigh}_{task}"
-
+    if params.get("model_version", "v3") == "v2":
+        orb_v2_task = params.get("orb_v2_task", "")
+        model_name = f"orb{orb_v2_task}_v2"
     try:
         model_builder = getattr(pretrained, model_name)
     except AttributeError as e:

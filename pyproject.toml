@@ -66,6 +66,7 @@ deepmd = ["deepmd-kit[torch]>=3.2.0b0","torch","torch-dftd","huggingface_hub","r
 alphanet = ["msc-alphanet>=0.1.3","torch==2.9.1","torch-dftd","requests"]
 eqnorm = ["eqnorm>=0.1.1","torch==2.9.1","torch-dftd"]
 hienet = ["hienet","torch==2.9.1","torch-dftd"]
+equiformer_v2 = ["equiformer-v2","torch","torch-dftd","huggingface_hub"]
 
 # DFTD4 variants
 dftd4 = ["dftd4"]
@@ -90,6 +91,7 @@ deepmd-nodisp = ["deepmd-kit[torch]>=3.2.0b0","huggingface_hub","requests"]
 alphanet-nodisp = ["msc-alphanet>=0.1.3","torch==2.9.1","requests"]
 eqnorm-nodisp = ["eqnorm>=0.1.1","torch==2.9.1"]
 hienet-nodisp = ["hienet","torch==2.9.1"]
+equiformer_v2-nodisp = ["equiformer-v2","huggingface_hub"]
 
 dev = [
     "nox",
@@ -137,6 +139,7 @@ conflicts = [
         { extra = "alphanet" },
         { extra = "eqnorm" },
         { extra = "hienet" },
+        { extra = "equiformer_v2" },
 
         # No Dispersion Variants
         { extra = "grace-nodisp" },
@@ -158,6 +161,7 @@ conflicts = [
         { extra = "alphanet-nodisp" },
         { extra = "eqnorm-nodisp" },
         { extra = "hienet-nodisp" },
+        { extra = "equiformer_v2-nodisp" },
     ]
 ]
 
@@ -279,5 +283,6 @@ ignored-modules = [
     "alphanet",
     "eqnorm",
     "hienet",
+    "equiformer_v2",
 ]
 generated-members = ["GRACEModels.*"]

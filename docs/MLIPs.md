@@ -141,6 +141,19 @@ Pre-trained universal models from the [Equflash (GGNN) project](https://github.c
 
 ---
 
+## Equiformer V2
+
+Pre-trained universal models from [EquiFormer V2](https://github.com/atomicarchitects/equiformer_v2), as packaged in [equiformer-v2 python package](https://github.com/daniisler/equiformer_v2/tree/feature-python-package).
+
+### Parameters
+
+| Parameter | Type | Choices | Default | Description |
+|-|-|-|-|-|
+| `model_path` | `str` | `eqV2_153M_omat`, `eqV2_153M_omat_mp_salex`, `eqV2_31M_mp`, `eqV2_31M_omat`, `eqV2_31M_omat_mp_salex`, `eqV2_86M_omat`, `eqV2_86M_omat_mp_salex`, `eqV2_dens_153M_mp`, `eqV2_dens_31M_mp`, `eqV2_dens_86M_mp` | `eqV2_153M_omat` | Path to a local file or a string specifier from the choice list which leads to a download from HuggingFace. |
+| `model_revision` | `str` | `main` | `main` | Revision of the model to download from HuggingFace. |
+
+---
+
 ## Equiformer V3
 
 Pre-trained universal models from [EquiFormer V3](https://github.com/atomicarchitects/equiformer_v3), as packaged in [equiformer-v3 python package](https://github.com/daniisler/equiformer_v3/tree/feature-python-package).
@@ -295,6 +308,8 @@ Pre-trained universal models from the [Orbitals](https://github.com/orbital-mate
 | `model_task` | `str` | `mpa`, `omat` | `omat` | Task the model is trained for. |
 | `max_neighbors` | `str` | `20`, `inf` | `20` | Maximum number of neighbors to consider for the model. |
 | `model_type` | `str` | `direct`, `conservative` | `conservative` | How inference of the forces is achieved. |
+| `model_version` | `str` | `v2`, `v3` | `v3` | Version of the model. |
+| `orb_v2_task` | `str` | "", `_mptraj_only`, `_d3`, `_d3_sm`, `_d3_xs` | "" | Task the model is trained for, only applied if the `model_version` is v2. |
 
 ---
 
