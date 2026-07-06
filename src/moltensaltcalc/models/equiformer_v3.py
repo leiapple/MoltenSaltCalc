@@ -69,10 +69,8 @@ def _build(params, device):
     if not params.get("dont_clean_model", False):
         clean_model(model_path)
 
-    calc = OCPCalculator(
+    return OCPCalculator(
         checkpoint_path=model_path,
         cpu=device.startswith("cpu"),
         seed=rng_seed_before,
     )
-
-    return calc

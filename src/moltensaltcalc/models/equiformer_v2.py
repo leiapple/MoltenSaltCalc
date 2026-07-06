@@ -48,10 +48,8 @@ def _build(params, device):
     if model_path in AVAILABLE_MODELS:
         model_path = hf_hub_download(repo_id=MODEL_HF_ID, filename=f"{model_path}.pt", revision=rev)
 
-    calc = OCPCalculator(
+    return OCPCalculator(
         checkpoint_path=model_path,
         cpu=device.startswith("cpu"),
         seed=rng_seed_before,
     )
-
-    return calc
