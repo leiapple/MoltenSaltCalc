@@ -5,7 +5,9 @@ from moltensaltcalc.registry import register_model
 
 AVAILABLE_MODELS_DICT = {
     "equflash": "65435004",
+    "equflash-omat": "66275099",
     "equflash_v2": "65435007",
+    "equflash_v2-omat": "66275102",
 }
 
 

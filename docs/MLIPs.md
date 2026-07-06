@@ -68,14 +68,14 @@ sim = MoltenSaltSimulator(
 
 ## 7net
 
-Pre-trained universal models from the [7net project](https://github.com/MDIL-SNU/SevenNet). Pretrained models are automatically downloaded and require no manual setup.
+Pre-trained universal models from the [7net project](https://github.com/MDIL-SNU/SevenNet). Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_name` | `str` | `7net-omni`, `7net-mf-ompa`, `7net-omat24`, `7net-l3i5`, `7net-0` | `7net-omni` | Name of the pretrained model |
-| `model_task` | `str` | `mpa`, `omat24`, `matpes_pbe`, `matpes_r2scan`, `mp_r2scan`, `oc20`, `oc22`, `odac23`, `omol25_low`, `omol25_high`, `spice`, `qcml`, `pet_mad` | `omat24` | Task head used by the model |
+| `model_name` | `str` | `7net-omni`, `7net-mf-ompa`, `7net-omat24`, `7net-l3i5`, `7net-0` | `7net-omni` | Name of the pre-trained model. |
+| `model_task` | `str` | `mpa`, `omat24`, `matpes_pbe`, `matpes_r2scan`, `mp_r2scan`, `oc20`, `oc22`, `odac23`, `omol25_low`, `omol25_high`, `spice`, `qcml`, `pet_mad` | `omat24` | Task head used by the model. |
 
 ---
 
@@ -93,13 +93,13 @@ Pre-trained universal models from the [AlphaNet project](https://github.com/zmyy
 
 ## CHGNet
 
-Pre-trained universal models from the [CHGNet project](https://github.com/CederGroupHub/chgnet). Pretrained models are automatically downloaded and require no manual setup.
+Pre-trained universal models from the [CHGNet project](https://github.com/CederGroupHub/chgnet). Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_name` | `str` | `0.3.0`, `0.2.0`, `r2scan` | `0.3.0` | Name of the pretrained CHGNet model |
+| `model_name` | `str` | `0.3.0`, `0.2.0`, `r2scan` | `0.3.0` | Name of the pre-trained CHGNet model. |
 
 ---
 
@@ -112,7 +112,7 @@ Pre-trained universal models from the [DeePMD project](https://github.com/deepmo
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
 | `model_path` | `str` | `DPA-3.3-1M`, `DPA-2.4-7M`, `DPA-3.1-3M-FT`, `DPA3-Omol-Large`, `DPA-3.2-5M`, `DPA-3.1-3M` | `DPA-3.3-1M` | Path to a local file or a string specifier from the choice list which leads to a download from huggingface/figshare. |
-| `model_task` | `str` | `Domains_Alloy`, `Domains_Anode`, `Domains_Cluster`, `Domains_FerroEle`, `Domains_SSE_PBE`, `Domains_SemiCond`, `H2O_H2O_PD`, `Metals_AlMgCu`, `Metals_AgAu_PBED3`, `Others_In2Se3`, `MPGen_OpenCSP`, `Alloy_tongqi`, `SSE_ABACUS`, `Hybrid_Perovskite`, `Electrolyte`, `ODAC23`, `Alex2D`, `Omat24`, `OC20M`, `OC22`, `Organic_Reactions`, `OMol25`, `MPTrj` | `Omat24` | Task head used by the model |
+| `model_task` | `str` | `Domains_Alloy`, `Domains_Anode`, `Domains_Cluster`, `Domains_FerroEle`, `Domains_SSE_PBE`, `Domains_SemiCond`, `H2O_H2O_PD`, `Metals_AlMgCu`, `Metals_AgAu_PBED3`, `Others_In2Se3`, `MPGen_OpenCSP`, `Alloy_tongqi`, `SSE_ABACUS`, `Hybrid_Perovskite`, `Electrolyte`, `ODAC23`, `Alex2D`, `Omat24`, `OC20M`, `OC22`, `Organic_Reactions`, `OMol25`, `MPTrj` | `Omat24` | Task head used by the model. |
 
 ---
 
@@ -124,8 +124,8 @@ Pre-trained universal models from the [Eqnorm project](https://github.com/yzchen
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_name` | `str` | `eqnorm` | `eqnorm` | Name of the pretrained Eqnorm model |
-| `model_task` | `str` | `eqnorm-omat`, `eqnorm-mptrj`, `eqnorm-max-mptrj` | `eqnorm-mptrj` | Task head used by the model |
+| `model_name` | `str` | `eqnorm` | `eqnorm` | Name of the pre-trained Eqnorm model. |
+| `model_task` | `str` | `eqnorm-omat`, `eqnorm-mptrj`, `eqnorm-max-mptrj` | `eqnorm-mptrj` | Task head used by the model. |
 
 ---
 
@@ -137,7 +137,7 @@ Pre-trained universal models from the [Equflash (GGNN) project](https://github.c
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_path` | `str` | `equflash`, `equflash_v2` | `equflash_v2` | Path to a local file or a string specifier from the choice list which leads to a download from figshare. |
+| `model_path` | `str` | `equflash`, `equflash-omat`, `equflash_v2`, `equflash_v2-omat` | `equflash_v2-omat` | Path to a local file or a string specifier from the choice list which leads to a download from figshare. |
 
 ---
 
@@ -157,16 +157,16 @@ Pre-trained universal models from [EquiFormer V3](https://github.com/atomicarchi
 
 ## FairChem
 
-Pre-trained universal models from the FairChem project. Pretrained models are automatically downloaded and require no manual setup.
+Pre-trained universal models from the FairChem project. Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
 | `model_size` | `str` | `s`, `m` | `s` | Size of the FairChem model |
-| `model_version` | `str` | `1p1`, `1p2` | `1p2` | Version of the pretrained model |
+| `model_version` | `str` | `1p1`, `1p2` | `1p2` | Version of the pre-trained model |
 | `model_task` | `str` | `omc`, `omol`, `odac`, `oc20`, `omat` | `omat` | Task the model is trained for |
-| `InferenceSettings` | `fairchem.core.units.mlip_unit.api.inference.InferenceSettings` | `...` | `Turbo settings from FAIRCHEM with compile=False` | Settings for the inference of the FAIRCHEM model |
+| `InferenceSettings` | `fairchem.core.units.mlip_unit.api.inference.InferenceSettings` | `...` | `Turbo settings from FAIRCHEM with compile=False` | Settings for the inference of the FAIRCHEM model. |
 
 ### Notes
 
@@ -179,15 +179,15 @@ Pre-trained universal models from the FairChem project. Pretrained models are au
 
 ## GRACE
 
-Foundation models from the [GRACE framework](https://github.com/ICAMS/grace-tensorpotential), supporting multiple sizes and layer configurations. Pretrained models are automatically downloaded and require no manual setup.
+Foundation models from the [GRACE framework](https://github.com/ICAMS/grace-tensorpotential), supporting multiple sizes and layer configurations. Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_size` | `str` | `small`, `medium`, `large` | `small` | Size of the model |
-| `num_layers` | `int` | `1`, `2` | `1` | Number of message-passing layers |
-| `model_task` | `str` | `OAM`, `OMAT` | `OMAT` | Task the model is trained for |
+| `model_size` | `str` | `small`, `medium`, `large` | `small` | Size of the model. |
+| `num_layers` | `int` | `1`, `2` | `1` | Number of message-passing layers. |
+| `model_task` | `str` | `OAM`, `OMAT` | `OMAT` | Task the model is trained for. |
 
 ---
 
@@ -205,18 +205,18 @@ Pre-trained universal models from the [AIRS](https://github.com/divelab/AIRS) Op
 
 ## MACE
 
-Foundation models from the [MACE framework](https://github.com/ACEsuit/mace). Pretrained models can be automatically downloaded and require no manual setup.
+Foundation models from the [MACE framework](https://github.com/ACEsuit/mace). Pre-trained models can be automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_path` | `str` | `...` | `https://github.com/ACEsuit/mace-foundations/releases/download/mace_omat_0/mace-omat-0-medium.model?raw=true` | Path or URL to a `.model` file |
-| `model_task` | `str` | `omat_pbe`, `omol`, `spice_wB97M`, `rgd1_b3lyp`, `oc20_usemppbe`, `matpes_r2scan` | `default` | Task head used by the model |
+| `model_path` | `str` | `...` | `https://github.com/ACEsuit/mace-foundations/releases/download/mace_omat_0/mace-omat-0-medium.model?raw=true` | Path or URL to a `.model` file. |
+| `model_task` | `str` | `omat_pbe`, `omol`, `spice_wB97M`, `rgd1_b3lyp`, `oc20_usemppbe`, `matpes_r2scan` | `default` | Task head used by the model. |
 
 ### Notes
 
-- Pretrained models must be downloaded automatically
+- Pre-trained models must be downloaded automatically
 - See: [github.com/ACEsuit/mace-foundations](https://github.com/ACEsuit/mace-foundations)
 - Not all combinations (specifically `model_task`) are available from MACE
 
@@ -248,7 +248,7 @@ Pre-trained universal models from the [MatRIS project](https://github.com/HPC-AI
 
 ## MatterSim
 
-Pre-trained universal models from the [MatterSim project](https://github.com/microsoft/mattersim). Pretrained models are automatically downloaded and require no manual setup.
+Pre-trained universal models from the [MatterSim project](https://github.com/microsoft/mattersim). Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
@@ -260,7 +260,7 @@ Pre-trained universal models from the [MatterSim project](https://github.com/mic
 
 ## NequIP
 
-Pre-trained universal models from the [NequIP project](https://github.com/mir-group/nequip). Pretrained models required manual precompilation. A description how to compile the model can be found at [nequip.net/models](https://www.nequip.net/models).
+Pre-trained universal models from the [NequIP project](https://github.com/mir-group/nequip). Pre-trained models required manual precompilation. A description how to compile the model can be found at [nequip.net/models](https://www.nequip.net/models).
 
 ### Parameters
 
@@ -272,15 +272,15 @@ Pre-trained universal models from the [NequIP project](https://github.com/mir-gr
 
 ## Nequix
 
-Pre-trained universal models from the [Nequix project](https://github.com/atomicarchitects/nequix). Pretrained models are automatically downloaded and require no manual setup.
+Pre-trained universal models from the [Nequix project](https://github.com/atomicarchitects/nequix). Pre-trained models are automatically downloaded and require no manual setup.
 
 ### Parameters
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_task` | `str` | `mp`, `omat`, `oam` | `omat` | Task the model is trained for |
+| `model_task` | `str` | `mp`, `omat`, `oam` | `omat` | Task the model is trained for. |
 | `model_path` | `str` | `...` | `None` | Provide the path to a Nequix model file. Overrides the `model_task` parameter. |
-| `model_backend` | `str` | `torch`, `jax` | `jax` | Backend to use for the Nequix model |
+| `model_backend` | `str` | `torch`, `jax` | `jax` | Backend to use for the Nequix model. |
 
 ---
 
@@ -318,10 +318,10 @@ Pre-trained universal models from the [UPET project](https://github.com/lab-cosm
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_task` | `str` | `omat`, `oam`, `mad`, `omatpes`, `omad`, `spice` | `omat` | Task the model is trained for |
+| `model_task` | `str` | `omat`, `oam`, `mad`, `omatpes`, `omad`, `spice` | `omat` | Task the model is trained for. |
 | `model_size` | `str` | `xs`, `s`, `m`, `l`, `xl` | `s` | Size of the UPET model. |
-| `model_version` | `str` | `latest`, `v0.1.0`, `v0.2.0` | `latest` | Version of the pretrained UPET model |
-| `checkpoint_path` | `str` | `...` | `None` | Path to a pretrained UPET model checkpoint file, optional |
+| `model_version` | `str` | `latest`, `v0.1.0`, `v0.2.0` | `latest` | Version of the pre-trained UPET model |
+| `checkpoint_path` | `str` | `...` | `None` | Path to a pre-trained UPET model checkpoint file, optional. |
 
 ---
 
