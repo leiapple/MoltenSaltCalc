@@ -8,7 +8,7 @@ from moltensaltcalc.registry import register_model
     metadata={
         "model_path": {
             "type": "str",
-            "description": "Path to a precompiled NequIP model file (e.g. nequip_models/mir-group__NequIP-OAM-S__0.1.nequip.pth). The filename must end with '.nequip.pth' (torchvision) or '.nequip.pt2' (aotinductor).",
+            "description": "Path to a precompiled NequIP model file (e.g. nequip_models/mir-group__NequIP-OAM-S__0.1.nequip.pth). The filename must end with '.nequip.pth' (torchvision) or '.nequip.pt2' (aotinductor). Pre-trained models require manual precompilation. A description how to compile the model can be found at https://www.nequip.net/models and the checkpoints are available at https://zenodo.org/records/21225418.",
             "default": None,
         },
     },

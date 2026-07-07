@@ -273,7 +273,7 @@ Pre-trained universal models from the [MatterSim project](https://github.com/mic
 
 ## NequIP
 
-Pre-trained universal models from the [NequIP project](https://github.com/mir-group/nequip). Pre-trained models required manual precompilation. A description how to compile the model can be found at [nequip.net/models](https://www.nequip.net/models).
+Pre-trained universal models from the [NequIP project](https://github.com/mir-group/nequip). Pre-trained models require manual precompilation. A description how to compile the model can be found at [nequip.net/models](https://www.nequip.net/models) and the checkpoints are available at [zenodo.org/records/21225418](https://zenodo.org/records/21225418).
 
 ### Parameters
 
