@@ -13,13 +13,13 @@ from ase.calculators.calculator import Calculator
 from ase.constraints import FixCom
 from ase.data import atomic_masses, atomic_numbers
 from ase.geometry import cell_to_cellpar, cellpar_to_cell
-from ase.io import Trajectory
+from ase.io import Trajectory, read
 from ase.md.andersen import Andersen
 from ase.md.bussi import Bussi
 from ase.md.langevin import Langevin
 from ase.md.melchionna import MelchionnaNPT
 from ase.md.nose_hoover_chain import MTKNPT, NoseHooverChainNVT
-from ase.md.nptberendsen import NPTBerendsen
+from ase.md.nptberendsen import Inhomogeneous_NPTBerendsen, NPTBerendsen
 from ase.md.nvtberendsen import NVTBerendsen
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
@@ -240,6 +240,7 @@ class MoltenSaltSimulator:
         n_cations: list[int],
         density_guess: float,
         lattice: str = "random",
+        cubic_cell: bool = False,
         random_removal: bool = False,
         random_min_distance: float = 1.6,
         random_max_attempts: int = 100000,
@@ -253,6 +254,7 @@ class MoltenSaltSimulator:
             n_cations (list[int]): Number of atoms for each cation type
             density_guess (float): Initial density guess in g/cm³
             lattice (str, optional): Initial lattice type ("random" or "rocksalt"). Defaults to "random".
+            cubic_cell (bool, optional): If True, use a cubic cell (only applies for "rocksalt" lattice). Defaults to False.
             random_removal (bool, optional):  If True and lattice is "rocksalt", randomly remove excess atoms to match the desired composition. If False, simply take the first N positions from the generated lattice. Defaults to False.
             random_min_distance (float, optional): Minimum distance between atoms in the random lattice in Å. Defaults to 1.6.
             random_max_attempts (int, optional): Maximum number of attempts to place atoms at random positions. Defaults to 100000.
@@ -319,8 +321,9 @@ class MoltenSaltSimulator:
 
         elif lattice == "rocksalt":
             # Generate an rocksalt lattice with arbitrary symbols and lattice constant
-            atoms = bulk("XY", "rocksalt", a=1.0)
-            cells_per_side = int(np.ceil((len(symbols) / 2) ** (1 / 3)))
+            atoms = bulk("XY", "rocksalt", a=1.0, cubic=cubic_cell)
+            n_atoms_per_unit_cell = 8 if cubic_cell else 2
+            cells_per_side = int(np.ceil((len(symbols) / n_atoms_per_unit_cell) ** (1 / 3)))
             # Generate enough lattice positions to accommodate all atoms
             atoms = atoms.repeat((cells_per_side, cells_per_side, cells_per_side))
             # Remove excess positions
@@ -359,6 +362,19 @@ class MoltenSaltSimulator:
 
         return atoms
 
+    def load_system(self, restart_file: str | Path) -> Atoms:
+        """Loads a system from a restart file (using ase.io.read) and sets the calculator.
+
+        Args:
+            restart_file (str | Path): The path to the restart file.
+
+        Returns:
+            Atoms: The loaded system.
+        """
+        atoms = read(restart_file, index=-1)  # type: Atoms
+        atoms.calc = self.calc
+        return atoms
+
     def _print_status(self, dyn, atoms):
         """Helper function to print the status of the simulation."""
         step = dyn.get_number_of_steps()
@@ -373,17 +389,18 @@ class MoltenSaltSimulator:
         atoms: Atoms,
         timestep_fs: float,
         T: float,
-        taut_fs: float,
-        taup_fs: float,
+        taut_fs: float | None,
+        taup_fs: float | None,
         pressure_bar: float,
         compressibility_per_bar: float,
         tchain: int,
         pchain: int,
         tloop: int,
         ploop: int,
+        mask: tuple[int, int, int],
         print_interval: int,
         logfile: str | Path | None,
-    ) -> NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT:
+    ) -> NoseHooverChainNVT | NPTBerendsen | Inhomogeneous_NPTBerendsen | MelchionnaNPT:
         """Select the NPT dynamics to use.
 
         Args:
@@ -391,14 +408,15 @@ class MoltenSaltSimulator:
             atoms (Atoms): System to simulate
             T (float): Temperature in K.
             timestep_fs (float): Time step dt for the simulation in fs.
-            taut_fs (float): Time constant for the NPT temperature coupling in fs.
-            taup_fs (float): Time constant for the NPT pressure coupling in fs.
+            taut_fs (float | None): Time constant for the NPT temperature coupling in fs. None to disable the thermostat.
+            taup_fs (float | None): Time constant for the NPT pressure coupling in fs. None to disable the barostat.
             pressure_bar (float): Pressure in bar.
             compressibility_per_bar (float): Compressibility of the system per bar in 1/bar.
             tchain (int): The number of thermostat variables in the Nose-Hoover thermostat. Only applies if npt_din is "mtknpt".
             pchain (int): The number of barostat variables in the MTK barostat. Only applies if npt_din is "mtknpt".
             tloop (int): The number of sub-steps in thermostat integration. Only applies if npt_din is "mtknpt".
             ploop (int): The number of sub-steps in barostat integration. Only applies if npt_din is "mtknpt".
+            mask (tuple[int, int, int]): Specifies which axes participate in the barostat. Only applies if npt_din is "nptberendsen_inhomogeneous".
             print_interval (int): Interval for printing status.
             logfile (str | Path | None): Logfile for the NPT dynamics simulation, "-" for stdout, None for no logfile.
 
@@ -406,19 +424,32 @@ class MoltenSaltSimulator:
             ValueError: If the NPT specified with npt_dyn is not supported.
 
         Returns:
-            NoseHooverChainNVT | NPTBerendsen | MelchionnaNPT: The selected NPT dynamics.
+            NoseHooverChainNVT | NPTBerendsen | Inhomogeneous_NPTBerendsen | MelchionnaNPT: The selected NPT dynamics.
         """
         if npt_dyn.lower() == "nptberendsen":
             dyn = NPTBerendsen(
                 atoms,
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
-                taut=taut_fs * units.fs,
+                taut=taut_fs * units.fs if taut_fs is not None else None,
                 pressure_au=pressure_bar * units.bar,
-                taup=taup_fs * units.fs,
+                taup=taup_fs * units.fs if taup_fs is not None else None,
                 compressibility_au=compressibility_per_bar / units.bar,
                 logfile=str(logfile) if logfile is not None else None,
                 loginterval=print_interval,
+            )
+        elif npt_dyn.lower() == "nptberendsen_inhomogeneous":
+            dyn = Inhomogeneous_NPTBerendsen(
+                atoms,
+                timestep=timestep_fs * units.fs,
+                temperature_K=T,
+                taut=taut_fs * units.fs if taut_fs is not None else None,
+                pressure_au=pressure_bar * units.bar,
+                taup=taup_fs * units.fs if taup_fs is not None else None,
+                compressibility_au=compressibility_per_bar / units.bar,
+                logfile=str(logfile) if logfile is not None else None,
+                loginterval=print_interval,
+                mask=mask,
             )
         # MelchionnaNPT can so far only operate on lists of atoms where the computational box is a triangular matrix
         elif npt_dyn.lower() == "melchionna":
@@ -429,8 +460,10 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 externalstress=pressure_bar * units.bar,
-                ttime=taut_fs * units.fs,
-                pfactor=(taup_fs * units.fs) ** 2 / compressibility_per_bar * units.bar,
+                ttime=taut_fs * units.fs if taut_fs is not None else None,
+                pfactor=(taup_fs * units.fs) ** 2 / compressibility_per_bar * units.bar
+                if taup_fs is not None
+                else None,
                 trajectory=None,
                 logfile=str(logfile) if logfile is not None else None,
                 loginterval=print_interval,
@@ -446,8 +479,8 @@ class MoltenSaltSimulator:
                 timestep=timestep_fs * units.fs,
                 temperature_K=T,
                 pressure_au=pressure_bar * units.bar,
-                tdamp=taut_fs * units.fs,
-                pdamp=taup_fs * units.fs,
+                tdamp=taut_fs * units.fs if taut_fs is not None else None,
+                pdamp=taup_fs * units.fs if taup_fs is not None else None,
                 tchain=tchain,
                 pchain=pchain,
                 tloop=tloop,
@@ -456,7 +489,9 @@ class MoltenSaltSimulator:
                 loginterval=print_interval,
             )
         else:
-            raise ValueError(f"Unsupported NPT dynamics: {npt_dyn}")
+            raise ValueError(
+                f"Unsupported NPT dynamics: {npt_dyn}. Choose from 'nptberendsen', 'mtknpt', 'melchionna'."
+            )
         return dyn  # type: ignore
 
     def run_npt_simulation(
@@ -466,14 +501,15 @@ class MoltenSaltSimulator:
         npt_dyn: str = "nptberendsen",
         steps: int = 1000,
         timestep_fs: float = 1.0,
-        taut_fs: float = 100.0,
-        taup_fs: float = 1000.0,
+        taut_fs: float | None = 100.0,
+        taup_fs: float | None = 1000.0,
         compressibility_per_bar: float = 5e-6,
         pressure_bar: float = 1.01325,
         tchain: int = 3,
         pchain: int = 3,
         tloop: int = 1,
         ploop: int = 1,
+        mask: tuple[int, int, int] = (0, 0, 1),
         print_interval: int = 100,
         write_interval: int = 10,
         traj_file: str | Path = "npt_simulation.traj",
@@ -488,14 +524,15 @@ class MoltenSaltSimulator:
             npt_dyn (str, optional): NPT dynamics to use. Defaults to "nptberendsen". Choices: "nptberendsen", "mtknpt", "melchionna". Defaults to "nptberendsen".
             steps (int, optional): Number of MD steps. Defaults to 1000.
             timestep_fs (float, optional): Time step dt for the simulation in fs. Defaults to 1.0.
-            taut_fs (float, optional): Time constant for the NPT temperature coupling in fs. Defaults to 100.0.
-            taup_fs (float, optional): Time constant for the NPT pressure coupling in fs. Defaults to 1000.0.
+            taut_fs (float | None, optional): Time constant for the NPT temperature coupling in fs. None to disable the thermostat. Defaults to 100.0.
+            taup_fs (float | None, optional): Time constant for the NPT pressure coupling in fs. None to disable the barostat. Defaults to 1000.0.
             compressibility_per_bar (float, optional): Compressibility of the system per bar in 1/bar. Defaults to 5e-6.
             pressure_bar (float, optional): Pressure in bar. Defaults to 1.01325.
             tchain (int, optional): The number of thermostat variables in the Nose-Hoover thermostat. Only applies if npt_din is "mtknpt". Defaults to 3.
             pchain (int, optional): The number of barostat variables in the MTK barostat. Only applies if npt_din is "mtknpt". Defaults to 3.
             tloop (int, optional): The number of sub-steps in thermostat integration. Only applies if npt_din is "mtknpt". Defaults to 1.
             ploop (int, optional): The number of sub-steps in barostat integration. Only applies if npt_din is "mtknpt". Defaults to 1.
+            mask (tuple[int, int, int]): Specifies which axes participate in the barostat. Only applies if npt_din is "nptberendsen_inhomogeneous". Defaults to a fixed box in x and y direction, so (0, 0, 1).
             print_interval (int, optional): Interval for printing status. Defaults to 100.
             write_interval (int, optional): Interval for writing trajectory frames. Defaults to 10.
             traj_file (str | Path, optional): Output trajectory file path. Defaults to "npt_simulation.traj".
@@ -507,7 +544,8 @@ class MoltenSaltSimulator:
         """
 
         # Set up the atomic momenta at the given temperature and remove center of mass motion
-        MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
+        if not np.isclose(atoms.get_temperature(), T, rtol=0.1):
+            MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
         atoms.set_constraint(FixCom())
 
@@ -526,6 +564,7 @@ class MoltenSaltSimulator:
             pchain,
             tloop,
             ploop,
+            mask,
             print_interval,
             logfile,
         )
@@ -630,7 +669,9 @@ class MoltenSaltSimulator:
                 loginterval=print_interval,
             )
         else:
-            raise ValueError(f"Unsupported NVT dynamics: {nvt_dyn}")
+            raise ValueError(
+                f"Unsupported NVT dynamics: {nvt_dyn}. Choose from 'nosehoover', 'langevin', 'bussi', 'andersen'."
+            )
 
         return dyn  # type: ignore
 

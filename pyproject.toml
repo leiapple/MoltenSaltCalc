@@ -244,10 +244,10 @@ disable = ["import-outside-toplevel"]
 
 [tool.pylint.DESIGN]
 max-attributes = 9
-max-positional-arguments = 19
-max-args = 19
+max-positional-arguments = 20
+max-args = 20
 max-branches = 20
-max-locals = 32
+max-locals = 35
 max-statements = 51
 
 [tool.pylint.TYPECHECK]
