@@ -6,7 +6,6 @@ import os
 import warnings
 from pathlib import Path
 
-from tqdm import tqdm
 import numpy as np
 from ase import Atoms, units
 from ase.build import bulk
@@ -27,6 +26,7 @@ from ase.md.velocitydistribution import (
     Stationary,
 )
 from scipy.spatial.distance import cdist
+from tqdm import tqdm
 
 from moltensaltcalc.gpu_selection import select_device
 from moltensaltcalc.model_discovery import discover_models
@@ -584,7 +584,7 @@ class MoltenSaltSimulator:
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)
         else:
-            pbar = tqdm(total=steps, desc="NPT Simulation", unit=f"steps")
+            pbar = tqdm(total=steps, desc="NPT Simulation", unit="steps")
             dyn.attach(lambda: pbar.update(1), interval=1)
 
         # Run the simulation
@@ -736,7 +736,7 @@ class MoltenSaltSimulator:
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)
         else:
-            pbar = tqdm(total=steps, desc="NVT Simulation", unit=f"steps")
+            pbar = tqdm(total=steps, desc="NVT Simulation", unit="steps")
             dyn.attach(lambda: pbar.update(1), interval=1)
 
         # Run the simulation
