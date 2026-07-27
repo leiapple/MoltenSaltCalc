@@ -18,9 +18,6 @@ def test_umlip(session, model):
     if "HF_TOKEN" in os.environ:
         session.env["HF_TOKEN"] = os.environ["HF_TOKEN"]
 
-    if model.lower() == "grace":
-        model = "grace-nodisp"
-
     if model.lower() == "vasp" or model.lower() == "equflash":
         return
 
