@@ -6,6 +6,7 @@ import os
 import warnings
 from pathlib import Path
 
+from tqdm import tqdm
 import numpy as np
 from ase import Atoms, units
 from ase.build import bulk
@@ -577,13 +578,20 @@ class MoltenSaltSimulator:
             lambda: atoms.info.update({"time_fs": dyn.get_time() / units.fs}),
             interval=write_interval,
         )
+        # Attach a tqdm progress bar
         dyn.attach(trajectory_npt.write, interval=write_interval)  # type: ignore
 
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)
+        else:
+            pbar = tqdm(total=steps, desc="NPT Simulation", unit=f"steps")
+            dyn.attach(lambda: pbar.update(1), interval=1)
 
         # Run the simulation
         dyn.run(steps)
+
+        if not print_status:
+            pbar.close()
 
         # Re-enable the constraints in case they were disabled (MTKNPT)
         if npt_dyn.lower() == "mtknpt":
@@ -727,9 +735,16 @@ class MoltenSaltSimulator:
 
         if print_status:
             dyn.attach(lambda: self._print_status(dyn, atoms), interval=print_interval)
+        else:
+            pbar = tqdm(total=steps, desc="NVT Simulation", unit=f"steps")
+            dyn.attach(lambda: pbar.update(1), interval=1)
 
         # Run the simulation
         dyn.run(steps)
+
+        if not print_status:
+            pbar.close()
+
         # Close the trajectory file
         trajectory_nvt.close()
         print(f"NVT Simulation finished, trajectory saved to {traj_file}")
