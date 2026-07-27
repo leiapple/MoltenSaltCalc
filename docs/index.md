@@ -20,20 +20,30 @@ It provides a unified interface to multiple MLIP backends, enabling rapid setup 
 Install the package together with the desired MLIP backend, for example:
 
 ```bash
-pip install moltensaltcalc[grace]
+pip install moltensaltcalc[mace]
 ```
 
 further options include:
 
 ```bash
+pip install moltensaltcalc[7net]
+pip install moltensaltcalc[alphanet]
+pip install moltensaltcalc[chgnet]
+pip install moltensaltcalc[deepmd]
+pip install moltensaltcalc[eqnorm]
+pip install moltensaltcalc[equiformer]
+pip install moltensaltcalc[equiformer_v3]
 pip install moltensaltcalc[fairchem]
-pip install moltensaltcalc[mace]
-pip install moltensaltcalc[upet]
+pip install moltensaltcalc[grace]
+pip install moltensaltcalc[hienet]
+pip install moltensaltcalc[matgl]
+pip install moltensaltcalc[matris]
+pip install moltensaltcalc[mattersim]
 pip install moltensaltcalc[nequip]
 pip install moltensaltcalc[nequix]
-pip install moltensaltcalc[7net]
-pip install moltensaltcalc[chgnet]
-pip install moltensaltcalc[mattersim]
+pip install moltensaltcalc[orbitals]
+pip install moltensaltcalc[tace]
+pip install moltensaltcalc[upet]
 ```
 
 Note: MLIP backends may have conflicting dependencies. It is recommended to use separate environments for each backend.
@@ -41,13 +51,13 @@ Note: MLIP backends may have conflicting dependencies. It is recommended to use 
 By default, the installation is shipped along with the `torch-dftd3` calculator for long-range interactions. If you do not wish to install/use the dispersion calculator, install with `-nodisp` instead, e.g.
 
 ```bash
-pip install moltensaltcalc[grace-nodisp]
+pip install moltensaltcalc[mace-nodisp]
 ```
 
 If you want to use the (slower but more accurate) `dftd4` calculator, install the `dftd4` variant, e.g.
 
 ```bash
-pip install moltensaltcalc[grace-nodisp,dftd4]
+pip install moltensaltcalc[mace-nodisp,dftd4]
 ```
 
 ---
@@ -61,11 +71,18 @@ from moltensaltcalc import MoltenSaltSimulator, MoltenSaltAnalyzer
 
 np.random.seed(42)  # Ensure reproducibility (initial random placements)
 
-sim = MoltenSaltSimulator(model_name="GRACE", model_parameters={"model_size": "small", "num_layers": 1, "model_task": "OAM"})
+sim = MoltenSaltSimulator(
+    model_name="mace",  # Use the MACE model
+    model_parameters={
+        "model_size": "small",  # Use the MACE-MP-0a small model
+        "model_task": "Default"
+    },
+    dispersion=None  # Disable dispersion
+)
 atoms = sim.build_system(
     salt_anion=["F", "Cl"],
     salt_cation=["Na"],
-    n_anions=[10, 5],  # 7 F atoms and 5 Cl atoms
+    n_anions=[10, 5],  # 10 F atoms and 5 Cl atoms
     n_cations=[15],  # 15 Na atoms
     density_guess=2.0,  # g/cm³
 )
@@ -81,8 +98,8 @@ analyzer = MoltenSaltAnalyzer(
     traj_files_npt=["npt_simulation.traj"],  # Trajectory file(s)
     temperatures_npt=[1100],  # K
 )
-density = analyzer.compute_eq_density(T=1100)  # 1.31 g/cm³
-C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.2)  # 0.19 J/g/K
+density = analyzer.compute_eq_density(T=1100)  # 1.68 g/cm³
+C = analyzer.compute_heat_capacity(T=1100, eq_fraction=0.2)  # 0.07 J/g/K
 ```
 
 ---
@@ -113,7 +130,6 @@ Use the navigation bar to explore:
     - [Analyzer API](Analyzer_API.md)
     - [Simulator API](Simulator_API.md)
     - [Model Error API](Model_Errors_AIP.md)
-    - [Model Discovery AIP](Model_Discovery_API.md)
 - [Available models](MLIPs.md)
 
 ## Repository

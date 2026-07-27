@@ -4,10 +4,10 @@ build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.4"
+version = "0.1.5"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dynamic = []
 
 authors = [
@@ -36,25 +36,37 @@ classifiers = [
 
 # Core dependencies
 dependencies = [
-    "ase>=3.22,<4.0",
+    "ase>=3.27,<4.0",
     "numpy>=1.26,<3.0",
     "scipy>=1.10,<2.0",
-    "myplots>=0.1.1",
+    "myplots>=0.1.3",
+    "tqdm",
 ]
 
 # Optional dependencies (for MLIPs)
 [project.optional-dependencies]
 
 # By default with the DFTD3 dispersion calculator
-grace = ["tensorpotential","torch","torch-dftd"]
+grace = ["tensorpotential","torch==2.9.1","torch-dftd"]
 fairchem = ["fairchem-core>=2.3,<3.0","torch","torch-dftd"]
-mace = ["mace-torch","cuequivariance","cuequivariance-torch","torch","torch-dftd"]
-mattersim = ["mattersim","torch","torch-dftd"]
+mace = ["mace-torch","cuequivariance","cuequivariance-torch","torch==2.9.1","torch-dftd"]
+mattersim = ["mattersim","torch==2.9.1","torch-dftd"]
 7net = ["sevenn","torch","torch-dftd"]
 nequip = ["nequip","torch","torch-dftd"]
-nequix = ["nequix","torch","torch-dftd"]
+nequix = ["nequix","torch==2.9.1","torch-dftd"]
 upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
+equiformer_v3 = ["equiformer-v3>=0.0.2","torch==2.9.1","torch-dftd","huggingface_hub"]
+orbitals = ["orb-models","torch","torch-dftd"]
+tace = ["tace","torch","torch-dftd"]
+equflash = ["equflash>=0.0.2; sys_platform == 'linux' and python_version >= '3.12'","torch-dftd"]
+matgl = ["matgl[jax]>=3.0.0","torch","torch-dftd"]
+matris = ["matris>=0.0.1","torch","torch-dftd"]
+deepmd = ["deepmd-kit[torch]>=3.2.0b0","torch","torch-dftd","huggingface_hub","requests"]
+alphanet = ["msc-alphanet>=0.1.3","torch==2.9.1","torch-dftd","requests"]
+eqnorm = ["eqnorm>=0.1.1","torch==2.9.1","torch-dftd"]
+hienet = ["hienet","torch==2.9.1","torch-dftd"]
+equiformer_v2 = ["equiformer-v2","torch","torch-dftd","huggingface_hub"]
 
 # DFTD4 variants
 dftd4 = ["dftd4"]
@@ -62,13 +74,24 @@ dftd4 = ["dftd4"]
 # No dispersion variants
 grace-nodisp = ["tensorpotential",]
 fairchem-nodisp = ["fairchem-core>=2.3,<3.0"]
-mace-nodisp = ["mace-torch","cuequivariance","cuequivariance-torch"]
-mattersim-nodisp = ["mattersim"]
+mace-nodisp = ["mace-torch","torch==2.9.1","cuequivariance","cuequivariance-torch"]
+mattersim-nodisp = ["mattersim","torch==2.9.1"]
 7net-nodisp = ["sevenn"]
 nequip-nodisp = ["nequip"]
-nequix-nodisp = ["nequix"]
+nequix-nodisp = ["nequix","torch==2.9.1"]
 upet-nodisp = ["upet"]
 chgnet-nodisp = ["chgnet"]
+equiformer_v3-nodisp = ["equiformer-v3>=0.0.2","huggingface_hub"]
+orbitals-nodisp = ["orb-models"]
+tace-nodisp = ["tace"]
+equflash-nodisp = ["equflash>=0.0.2; sys_platform == 'linux' and python_version >= '3.12'"]
+matgl-nodisp = ["matgl[jax]>=3.0.0"]
+matris-nodisp = ["matris"]
+deepmd-nodisp = ["deepmd-kit[torch]>=3.2.0b0","huggingface_hub","requests"]
+alphanet-nodisp = ["msc-alphanet>=0.1.3","torch==2.9.1","requests"]
+eqnorm-nodisp = ["eqnorm>=0.1.1","torch==2.9.1"]
+hienet-nodisp = ["hienet","torch==2.9.1"]
+equiformer_v2-nodisp = ["equiformer-v2","huggingface_hub"]
 
 dev = [
     "nox",
@@ -77,7 +100,7 @@ dev = [
     "pytest-cov",
     "coverage-badge",
     "uv",
-]
+    ]
 
 docs = [
     "mkdocs-material",
@@ -106,6 +129,17 @@ conflicts = [
         { extra = "nequix" },
         { extra = "upet" },
         { extra = "chgnet" },
+        { extra = "equiformer_v3" },
+        { extra = "orbitals" },
+        { extra = "tace" },
+        { extra = "equflash" },
+        { extra = "matgl" },
+        { extra = "matris" },
+        { extra = "deepmd" },
+        { extra = "alphanet" },
+        { extra = "eqnorm" },
+        { extra = "hienet" },
+        { extra = "equiformer_v2" },
 
         # No Dispersion Variants
         { extra = "grace-nodisp" },
@@ -117,8 +151,32 @@ conflicts = [
         { extra = "nequix-nodisp" },
         { extra = "upet-nodisp" },
         { extra = "chgnet-nodisp" },
+        { extra = "equiformer_v3-nodisp" },
+        { extra = "orbitals-nodisp" },
+        { extra = "tace-nodisp" },
+        { extra = "equflash-nodisp" },
+        { extra = "matgl-nodisp" },
+        { extra = "matris-nodisp" },
+        { extra = "deepmd-nodisp" },
+        { extra = "alphanet-nodisp" },
+        { extra = "eqnorm-nodisp" },
+        { extra = "hienet-nodisp" },
+        { extra = "equiformer_v2-nodisp" },
     ]
 ]
+
+index-strategy = "first-index"
+find-links = ["https://data.pyg.org/whl/torch-2.9.1+cu126.html"]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
 
 # UV build
 [tool.uv_build]
@@ -191,10 +249,10 @@ disable = ["import-outside-toplevel"]
 
 [tool.pylint.DESIGN]
 max-attributes = 9
-max-positional-arguments = 19
-max-args = 19
+max-positional-arguments = 20
+max-args = 20
 max-branches = 20
-max-locals = 32
+max-locals = 35
 max-statements = 51
 
 [tool.pylint.TYPECHECK]
@@ -217,5 +275,19 @@ ignored-modules = [
     "torch",
     "torch_dftd",
     "dftd4",
+    "equiformer_v3",
+    "huggingface_hub",
+    "requests",
+    "tqdm",
+    "GGNN",
+    "orb_models",
+    "tace",
+    "matgl",
+    "matris",
+    "deepmd",
+    "alphanet",
+    "eqnorm",
+    "hienet",
+    "equiformer_v2",
 ]
 generated-members = ["GRACEModels.*"]

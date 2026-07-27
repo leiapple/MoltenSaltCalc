@@ -2,25 +2,34 @@
 
 from moltensaltcalc.registry import register_model
 
+AVAILABLE_MODELS = [
+    "uma-s-1p2",
+    "uma-s-1p1",
+    "uma-m-1p1",
+    "esen-md-direct-all-omol",
+    "esen-sm-conserving-all-omol",
+    "esen-sm-direct-all-omol",
+    "allscaip-md-conserving-all-omol",
+    "allscaip-md-direct-all-omol",
+    "esen-sm-conserving-all-oc25",
+    "esen-md-direct-all-oc25",
+    "esen-sm-filtered-odac25",
+    "esen-sm-full-odac25",
+]
+
 
 @register_model(
     "fairchem",
     metadata={
-        "model_size": {
+        "model_name": {
             "type": "str",
-            "choices": ["s", "m"],
-            "description": "Size of the FairChem model. Size 'm' is currently (04.2026) only supported for version '1p1'.",
-            "default": "s",
-        },
-        "model_version": {
-            "type": "str",
-            "choices": ["1p1", "1p2", "1 (for older versions of fairchem-core)"],
+            "choices": AVAILABLE_MODELS,
             "description": "Version of the pretrained model.",
-            "default": "1p2",
+            "default": "uma-s-1p2",
         },
         "model_task": {
             "type": "str",
-            "choices": ["omc", "omol", "odac", "oc20", "omat"],
+            "choices": ["omc", "omol", "odac", "oc20", "omat", ""],
             "description": "Task the model is trained for.",
             "default": "omat",
         },
@@ -33,24 +42,10 @@ from moltensaltcalc.registry import register_model
 )
 def _build(params, device):
     """Import and build the FAIRCHEM MLIP."""
-    import os
-
-    # Normalize device BEFORE CUDA init
-    changed_device = False
-    if device.startswith("cuda"):
-        if ":" in device:
-            idx = device.split(":", 1)[1]
-            if idx.isdigit():
-                os.environ["CUDA_VISIBLE_DEVICES"] = idx
-                changed_device = True
-            else:
-                print(f"Invalid CUDA device index: {idx}, falling back to 'cuda'")
-        device = "cuda"
 
     import random
 
     import numpy as np
-    import torch
     from fairchem.core import FAIRChemCalculator, pretrained_mlip
     from fairchem.core.units.mlip_unit.api.inference import InferenceSettings
 
@@ -65,23 +60,17 @@ def _build(params, device):
     )
     settings = params.get("InferenceSettings", turbo_settings)
 
-    # Fairchem resets the random seeds after loading the model, so we need to keep it
+    # Fairchem resets the rng seeds after loading the model, so we need to keep it
     rng_seed_before = int(np.random.get_state()[1][0])  # type: ignore
     predictor = pretrained_mlip.get_predict_unit(
-        f"uma-{params.get('model_size', 's').lower()}-{params.get('model_version', '1p2').lower()}",
+        params.get("model_name", "uma-s-1p2").lower(),
         device=device,
         inference_settings=settings,
     )
     np.random.seed(rng_seed_before)
     random.seed(rng_seed_before)
-    print(f"Changed device: {changed_device}")
-    if changed_device:
-        print("Visible device count:", torch.cuda.device_count())
-        print("Current device index:", torch.cuda.current_device())
-        print("Current device name:", torch.cuda.get_device_name(0))
-        print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
-
+    task_name = params.get("model_task", "omat").lower()
     return FAIRChemCalculator(
         predictor,
-        task_name=params.get("model_task", "omat").lower(),
+        task_name=task_name if task_name != "" else None,
     )

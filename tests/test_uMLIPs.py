@@ -14,6 +14,7 @@ BASE = Path(__file__).parent
 def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     """Test that the uMLIPs are run with the minimal test that they don't crash and produce readable output."""
     model = request.config.getoption("--model")
+    gpu_available = request.config.getoption("--gpu_available", default=False)
 
     if model is None:
         pytest.skip(
@@ -26,7 +27,7 @@ def test_umlip_minimal(request, tmp_path):  # pragma: no cover
     sim = msc.MoltenSaltSimulator(
         model_name=model.replace("-nodisp", ""),
         model_parameters=params,
-        device="cpu",
+        device="cuda" if gpu_available else "cpu",
         dispersion=None if "-nodisp" in model else "DFTD3",
     )
 
