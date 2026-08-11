@@ -11,7 +11,7 @@ from moltensaltcalc.registry import register_model
             "choices": [
                 "TACE-OAM-7M",
                 "TACE-OAM-L",
-                "TACE-Omat24-7M",
+                "TACE-OMat24-7M",
                 "TACE-OMat24-L",
                 "TACE-OMat24-RRA-1.0",
                 "TACE-OMat24-RRA-Preview",
@@ -28,7 +28,7 @@ def _build(params, device):
     from tace.foundations import tace_foundations
     from tace.interface.ase import TACEAseCalc
 
-    model_name = params.get("model_name", "TACE-Omat24-7M")
+    model_name = params.get("model_name", "TACE-OMat24-7M")
     model = tace_foundations[model_name]
     calc = TACEAseCalc(model=model, dtype="float32", device=device)
 
