@@ -9,9 +9,14 @@ from moltensaltcalc.registry import register_model
         "model_name": {
             "type": "str",
             "choices": [
-                "TACE-v1-OMat24-M",
-                "TACE-v1-OAM-M",
-                "TACE-v1-LES-REICO-5-PdAgCHO.pt",
+                "TACE-OAM-7M",
+                "TACE-OAM-L",
+                "TACE-Omat24-7M",
+                "TACE-OMat24-L",
+                "TACE-OMat24-RRA-1.0",
+                "TACE-OMat24-RRA-Preview",
+                "TECE-OAM-RRA-1.0",
+                "TECE-OMat24-RRA-1.0"
             ],
             "description": "Name of pre-trained model or path to the checkpoint, deployed model or the model itself.",
             "default": "TACE-v1-OMat24-M",
