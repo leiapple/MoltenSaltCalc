@@ -19,7 +19,7 @@ from moltensaltcalc.registry import register_model
                 "TECE-OMat24-RRA-1.0"
             ],
             "description": "Name of pre-trained model or path to the checkpoint, deployed model or the model itself.",
-            "default": "TACE-v1-OMat24-M",
+            "default": "TACE-Omat24-7M",
         },
     },
 )
@@ -28,7 +28,7 @@ def _build(params, device):
     from tace.foundations import tace_foundations
     from tace.interface.ase import TACEAseCalc
 
-    model_name = params.get("model_name", "TACE-v1-OMat24-M")
+    model_name = params.get("model_name", "TACE-Omat24-7M")
     model = tace_foundations[model_name]
     calc = TACEAseCalc(model=model, dtype="float32", device=device)
 
