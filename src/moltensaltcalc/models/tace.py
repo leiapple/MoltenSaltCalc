@@ -16,7 +16,7 @@ from moltensaltcalc.registry import register_model
                 "TACE-OMat24-RRA-1.0",
                 "TACE-OMat24-RRA-Preview",
                 "TECE-OAM-RRA-1.0",
-                "TECE-OMat24-RRA-1.0"
+                "TECE-OMat24-RRA-1.0",
             ],
             "description": "Name of pre-trained model or path to the checkpoint, deployed model or the model itself.",
             "default": "TACE-Omat24-7M",
