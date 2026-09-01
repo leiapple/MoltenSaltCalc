@@ -12,6 +12,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
+from tqdm import tqdm
 
 
 def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
@@ -110,13 +111,15 @@ class MoltenSaltAnalyzer:
 
         valid_trajs, valid_times_fs, valid_temperatures = [], [], []
         valid_ids = [] if ids is not None else None
-
-        for traj_file, temperature, run_id in zip(
-            traj_files,
-            temperatures,
-            ids if ids is not None else [None] * len(traj_files),
-            strict=True,
-        ):
+        traj_list = list(
+            zip(
+                traj_files,
+                temperatures,
+                ids if ids is not None else [None] * len(traj_files),
+                strict=True,
+            )
+        )
+        for traj_file, temperature, run_id in tqdm(traj_list, desc="Loading trajectories"):
             if not Path(traj_file).exists():
                 warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
                 continue
@@ -250,6 +253,30 @@ class MoltenSaltAnalyzer:
         eq_times = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
         return eq_times
 
+    def compute_temperature_vs_time(
+        self, traj_id: str | None = None, T: int | float | None = None, eq_fraction: float = 0.1, ensemble: str = "nvt"
+    ):
+        """Compute the temperature from the trajectory file.
+        Args:
+            traj_id (str, optional): Identifier for the trajectory. Defaults to None.
+            T (int, float, optional): Temperature in K. The trajectory with the matching temperature is selected if traj_id is None. Defaults to None.
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            ensemble (str, optional): Ensemble to select preferentially. Defaults to "nvt".
+
+        Raises:
+            ValueError: If eq_fraction is not between 0 and 1.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Temperatures in K and equilibrium times.
+        """
+        if eq_fraction > 1.0 or eq_fraction < 0.0:
+            raise ValueError("eq_fraction must be between 0 and 1.")
+
+        traj, times = self._select_trajectory(ensemble, T, traj_id)
+        eq_times = self._get_eq_times(eq_fraction, times)
+        temperatures = np.array([atoms.get_temperature() for atoms in traj])[eq_times]
+        return temperatures, eq_times
+
     def compute_density_vs_time(
         self, traj_id: str | None = None, T: int | float | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -278,6 +305,9 @@ class MoltenSaltAnalyzer:
             traj_id (str, optional): Identifier for the trajectory. Defaults to None.
             T (int, float, optional): Temperature in K. The trajectory with the matching temperature is selected if traj_id is None. Defaults to None.
             eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+
+        Raises:
+            ValueError: If eq_fraction is not between 0 and 1.
 
         Returns:
             float: Density in g/cm³
@@ -465,7 +495,7 @@ class MoltenSaltAnalyzer:
 
         Returns:
             dict: Dictionary with RDF results:
-                - "(atomic number, atomic number)": (distances, avg_rdf) for each pair. Distances are in Å and avg_rdf is unitless (normalized).
+                - "(atomic number, atomic number)": (distances, avg_rdf, std_rdf) for each pair. Distances are in Å and avg_rdf is unitless (normalized).
         """
         traj, _ = self._select_trajectory("nvt", T, traj_id)
 
@@ -536,8 +566,9 @@ class MoltenSaltAnalyzer:
                     ]
                 results = pool.map(_rdf_worker, tasks) if n_workers > 1 else [_rdf_worker(task) for task in tasks]
                 avg_rdf = np.mean([res[0] for res in results if not np.isnan(res[0]).any()], axis=0)
+                std_rdf = np.std([res[0] for res in results if not np.isnan(res[0]).any()], axis=0)
                 # Distances are the same for all frames, so they can be taken from the final frame
-                rdf_results[pair] = (results[-1][1], avg_rdf)
+                rdf_results[pair] = (results[-1][1], avg_rdf, std_rdf)
 
         return rdf_results
 

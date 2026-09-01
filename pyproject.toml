@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "moltensaltcalc"
-version = "0.1.5"
+version = "0.1.6"
 description = "Molten salt simulation package employing universal machine-learned interatomic potentials (uMLIPs)"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -58,14 +58,14 @@ upet = ["upet","torch","torch-dftd"]
 chgnet = ["chgnet","torch","torch-dftd"]
 equiformer_v3 = ["equiformer-v3>=0.0.2","torch==2.9.1","torch-dftd","huggingface_hub"]
 orbitals = ["orb-models","torch","torch-dftd"]
-tace = ["tace","torch","torch-dftd"]
+tace = ["tace>=0.2.0","torch","torch-dftd"]
 equflash = ["equflash>=0.0.2; sys_platform == 'linux' and python_version >= '3.12'","torch-dftd"]
 matgl = ["matgl[jax]>=3.0.0","torch","torch-dftd"]
 matris = ["matris>=0.0.1","torch","torch-dftd"]
 deepmd = ["deepmd-kit[torch]>=3.2.0b0","torch","torch-dftd","huggingface_hub","requests"]
 alphanet = ["msc-alphanet>=0.1.3","torch==2.9.1","torch-dftd","requests"]
 eqnorm = ["eqnorm>=0.1.1","torch==2.9.1","torch-dftd"]
-hienet = ["hienet","torch==2.9.1","torch-dftd"]
+hienet = ["hienet>=1.0.2","torch==2.9.1","torch-dftd"]
 equiformer_v2 = ["equiformer-v2","torch","torch-dftd","huggingface_hub"]
 
 # DFTD4 variants
@@ -83,14 +83,14 @@ upet-nodisp = ["upet"]
 chgnet-nodisp = ["chgnet"]
 equiformer_v3-nodisp = ["equiformer-v3>=0.0.2","huggingface_hub"]
 orbitals-nodisp = ["orb-models"]
-tace-nodisp = ["tace"]
+tace-nodisp = ["tace>=0.2.0"]
 equflash-nodisp = ["equflash>=0.0.2; sys_platform == 'linux' and python_version >= '3.12'"]
 matgl-nodisp = ["matgl[jax]>=3.0.0"]
 matris-nodisp = ["matris"]
 deepmd-nodisp = ["deepmd-kit[torch]>=3.2.0b0","huggingface_hub","requests"]
 alphanet-nodisp = ["msc-alphanet>=0.1.3","torch==2.9.1","requests"]
 eqnorm-nodisp = ["eqnorm>=0.1.1","torch==2.9.1"]
-hienet-nodisp = ["hienet","torch==2.9.1"]
+hienet-nodisp = ["hienet>=1.0.2","torch==2.9.1"]
 equiformer_v2-nodisp = ["equiformer-v2","huggingface_hub"]
 
 dev = [
@@ -167,6 +167,9 @@ conflicts = [
 
 index-strategy = "first-index"
 find-links = ["https://data.pyg.org/whl/torch-2.9.1+cu126.html"]
+
+[tool.uv.extra-build-dependencies]
+torch-scatter = ["torch==2.9.1"]
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

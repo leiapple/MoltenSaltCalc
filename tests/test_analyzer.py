@@ -99,6 +99,19 @@ def test_trajectory_without_time_fs():
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
 
 
+def test_compute_temperature_vs_time(analyzer):
+    """Test that the computed temperature vs. time is correct."""
+    temperatures, times = analyzer.compute_temperature_vs_time(T=1100, eq_fraction=EQ_FRAC)
+    assert isinstance(temperatures, np.ndarray), "Temperatures is not a numpy array"
+    assert isinstance(times, np.ndarray), "Times is not a numpy array"
+    assert len(temperatures) == len(times), "Length of temperatures and times do not match"
+    temperatures_ref, times_ref = np.array([1075.03787606, 1087.58775654, 1021.26207237]), np.array([3, 4, 5])
+    assert np.allclose(temperatures, temperatures_ref, atol=1e-5), (
+        f"Temperatures is {temperatures} instead of {temperatures_ref}"
+    )
+    assert np.allclose(times, times_ref, atol=1e-5), f"Times is {times} instead of {times_ref}"
+
+
 def test_compute_density_vs_time(analyzer):
     """Test that the computed density vs. time is correct."""
     densities, times = analyzer.compute_density_vs_time(T=1100)
@@ -192,10 +205,11 @@ def test_compute_rdf(analyzer):
     )
     assert isinstance(rdf_data, dict), "Radial distribution function results are not returned as a dictionary"
     assert pair in rdf_data, f"Radial distribution function results do not contain the key '{pair}'"
-    (distances, avg_rdf), distances_ref, avg_rdf_ref = (
+    (distances, avg_rdf, std_rdf), distances_ref, avg_rdf_ref, std_rdf_ref = (
         rdf_data[pair],
         [0.5, 1.5, 2.5, 3.5, 4.5],
         [0.0, 0.0, 0.01664065, 1.17638912, 1.66206463],
+        [0.0, 0.0, 0.0, 0.01611298, 0.01710353],
     )
     assert isinstance(distances, np.ndarray), "Distances are not a numpy array"
     assert isinstance(avg_rdf, np.ndarray), "Average RDF is not a numpy array"
@@ -207,6 +221,9 @@ def test_compute_rdf(analyzer):
     )
     assert np.allclose(distances, distances_ref, atol=1e-5), f"Distances are {distances} instead of {distances_ref}"
     assert np.allclose(avg_rdf, avg_rdf_ref, atol=1e-5), f"Average RDF is {avg_rdf} instead of {avg_rdf_ref}"
+    assert np.allclose(std_rdf, std_rdf_ref, atol=1e-5), (
+        f"Standard deviation of the RDF is {std_rdf} instead of {std_rdf_ref}"
+    )
 
 
 def test_rdf_auto_pairs_multiprocessing(analyzer):
