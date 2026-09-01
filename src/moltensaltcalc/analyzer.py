@@ -12,6 +12,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
+from tqdm import tqdm
 
 
 def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
@@ -110,13 +111,15 @@ class MoltenSaltAnalyzer:
 
         valid_trajs, valid_times_fs, valid_temperatures = [], [], []
         valid_ids = [] if ids is not None else None
-
-        for traj_file, temperature, run_id in zip(
-            traj_files,
-            temperatures,
-            ids if ids is not None else [None] * len(traj_files),
-            strict=True,
-        ):
+        traj_list = list(
+            zip(
+                traj_files,
+                temperatures,
+                ids if ids is not None else [None] * len(traj_files),
+                strict=True,
+            )
+        )
+        for traj_file, temperature, run_id in tqdm(traj_list, desc="Loading trajectories"):
             if not Path(traj_file).exists():
                 warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
                 continue
