@@ -267,7 +267,7 @@ class MoltenSaltAnalyzer:
             ValueError: If eq_fraction is not between 0 and 1.
 
         Returns:
-            np.ndarray: Temperatures in K
+            Tuple[np.ndarray, np.ndarray]: Temperatures in K and equilibrium times.
         """
         if eq_fraction > 1.0 or eq_fraction < 0.0:
             raise ValueError("eq_fraction must be between 0 and 1.")
@@ -275,7 +275,7 @@ class MoltenSaltAnalyzer:
         traj, times = self._select_trajectory(ensemble, T, traj_id)
         eq_times = self._get_eq_times(eq_fraction, times)
         temperatures = np.array([atoms.get_temperature() for atoms in traj])[eq_times]
-        return temperatures
+        return temperatures, eq_times
 
     def compute_density_vs_time(
         self, traj_id: str | None = None, T: int | float | None = None

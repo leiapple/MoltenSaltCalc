@@ -99,6 +99,19 @@ def test_trajectory_without_time_fs():
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
 
 
+def test_compute_temperature_vs_time(analyzer):
+    """Test that the computed temperature vs. time is correct."""
+    temperatures, times = analyzer.compute_temperature_vs_time(T=1100, eq_fraction=EQ_FRAC)
+    assert isinstance(temperatures, np.ndarray), "Temperatures is not a numpy array"
+    assert isinstance(times, np.ndarray), "Times is not a numpy array"
+    assert len(temperatures) == len(times), "Length of temperatures and times do not match"
+    temperatures_ref, times_ref = np.array([1075.03787606, 1087.58775654, 1021.26207237]), np.array([3, 4, 5])
+    assert np.allclose(temperatures, temperatures_ref, atol=1e-5), (
+        f"Temperatures is {temperatures} instead of {temperatures_ref}"
+    )
+    assert np.allclose(times, times_ref, atol=1e-5), f"Times is {times} instead of {times_ref}"
+
+
 def test_compute_density_vs_time(analyzer):
     """Test that the computed density vs. time is correct."""
     densities, times = analyzer.compute_density_vs_time(T=1100)
