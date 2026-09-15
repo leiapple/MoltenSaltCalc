@@ -441,6 +441,9 @@ class MoltenSaltAnalyzer:
                 - "thermal_expansion": Thermal expansion coefficient in 1/K
         """
 
+        if not 0.0 <= eq_fraction <= 1.0:
+            raise ValueError("eq_fraction must be between 0 and 1.")
+
         # Select the NPT trajectories, times, and temperatures
         selected_trajs, selected_times, selected_temps = self._select_trajs_multi_temp(ids, "thermal expansion")
 
@@ -466,6 +469,26 @@ class MoltenSaltAnalyzer:
             "thermal_expansion": fit[0],
         }
 
+    def _mean_enthalpy(self, traj, times: np.ndarray, T: float, eq_fraction: float, pressure: float) -> float:
+        """Compute the mean enthalpy of a trajectory.
+
+        Args:
+            traj (Trajectory): The trajectory to analyze.
+            times (np.ndarray): Array of time points corresponding to the trajectory frames.
+            T (float): Temperature of the simulation in K.
+            eq_fraction (float): Fraction of the simulation time to be considered as equilibrium.
+            pressure (float): External pressure in the same units as the volume.
+
+        Returns:
+            float: Mean enthalpy of the trajectory.
+        """
+        eq_indices = self._get_eq_times(eq_fraction, times)
+        H = np.array([atoms.get_total_energy() + pressure * atoms.get_volume() for atoms in traj])[eq_indices]  # eV
+        H_mean = np.mean(H)  # eV
+        if traj[0].get_kinetic_energy() == 0:
+            H_mean += 1.5 * len(traj[0]) * T * units.kB  # eV
+        return H_mean
+
     def compute_heat_capacity_cp(
         self,
         T: int | float,
@@ -488,48 +511,46 @@ class MoltenSaltAnalyzer:
         Returns:
             float: Heat capacity in J/g/K
         """
+
+        if not 0.0 <= eq_fraction <= 1.0:
+            raise ValueError("eq_fraction must be between 0 and 1.")
+
+        # Select the NPT trajectories, times, and temperatures
         selected_trajs, selected_times, selected_temps = self._select_trajs_multi_temp(ids, "heat capacity")
 
         # Sort trajectories by temperature
-        order = np.argsort(selected_temps)
-        selected_trajs = [selected_trajs[i] for i in order]
-        selected_times = [selected_times[i] for i in order]
-        selected_temps = [selected_temps[i] for i in order]
+        data = sorted(
+            zip(selected_temps, selected_trajs, selected_times, strict=True),
+            key=lambda item: item[0],
+        )
 
         # Find the two temperatures surrounding T
-        idx = np.searchsorted(selected_temps, T)
-        if idx == 0 or idx == len(selected_temps):
+        temperatures = np.array([item[0] for item in data])
+        idx = np.searchsorted(temperatures, T)
+        if idx == 0 or idx == len(temperatures):
             raise ValueError(f"T={T} K must lie between two available NPT temperatures.")
 
-        i1, i2 = idx - 1, idx
-        eq_times_1 = self._get_eq_times(eq_fraction, selected_times[i1])
-        eq_times_2 = self._get_eq_times(eq_fraction, selected_times[i2])
+        T1, traj1, times1 = data[idx - 1]
+        T2, traj2, times2 = data[idx]
 
-        p = p_ext_bar * units.bar
-        enthalpies = []
-        for i, eq_times in zip([i1, i2], [eq_times_1, eq_times_2], strict=False):
-            traj = selected_trajs[i]
-            enthalpies.append(
-                np.array([atoms.get_total_energy() + p * atoms.get_volume() for atoms in traj])[eq_times]
-            )  # eV
+        if T1 == T2:
+            raise ValueError("The two selected NPT trajectories must have different temperatures.")
 
-        # Finite-difference heat capacity
-        mean_h_1 = np.mean(enthalpies[0])  # eV
-        mean_h_2 = np.mean(enthalpies[1])  # eV
-        if any(traj[0].get_kinetic_energy() == 0 for traj in selected_trajs):
+        if any(traj[0].get_kinetic_energy() == 0 for traj in [traj1, traj2]):
             warnings.warn(
-                "Kinetic energy of the first frame is zero, which may indicate an issue with the trajectory. Proceeding with 3N/2*kB*T added to the enthalpy means.",
+                "Kinetic energy of the first frame is zero, which may indicate an issue "
+                "with the trajectory. Proceeding with 3N/2*kB*T added to the enthalpy.",
                 stacklevel=2,
             )
-            mean_h_1 += 1.5 * len(selected_trajs[i1][0]) * selected_temps[i1] * units.kB
-            mean_h_2 += 1.5 * len(selected_trajs[i2][0]) * selected_temps[i2] * units.kB
-        C = (mean_h_2 - mean_h_1) / ((selected_temps[i2] - selected_temps[i1]) * units.J)  # J/K
 
-        # Convert from J/K to J/g/K
-        m_tot = selected_trajs[0][0].get_masses().sum() / units.kg * 1e3  # g
-        C /= m_tot  # J/g/K
+        pressure = p_ext_bar * units.bar  # Pa
+        H1 = self._mean_enthalpy(traj1, times1, T1, eq_fraction, pressure)  # eV
+        H2 = self._mean_enthalpy(traj2, times2, T2, eq_fraction, pressure)  # eV
 
-        return C
+        heat_capacity = (H2 - H1) / ((T2 - T1) * units.J)  # J/K
+
+        mass_g = traj1[0].get_masses().sum() / units.kg * 1e3  # g
+        return heat_capacity / mass_g  # J/g/K
 
     def compute_heat_capacity_cv(self, T: int | float, traj_id: str | None = None, eq_fraction: float = 0.1) -> float:
         """Compute heat capacity from total energy fluctuations. If both NPT and NVT trajectories are loaded, the heat capacity is computed from the NVT trajectory.

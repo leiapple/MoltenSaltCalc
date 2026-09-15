@@ -163,7 +163,7 @@ def test_compute_heat_capacity_cp(analyzer):
     """Test that the heat capacity at constant pressure is computed correctly."""
     heat_capacity = analyzer.compute_heat_capacity_cp(T=1175, ids=analyzer.ids_npt, eq_fraction=EQ_FRAC)
     assert isinstance(heat_capacity, float), "Heat capacity is not a float"
-    heat_capacity_ref = 0.17378
+    heat_capacity_ref = 1.45841
     assert np.isclose(heat_capacity, heat_capacity_ref, atol=1e-5), (
         f"Heat capacity is {heat_capacity:.5f} instead of {heat_capacity_ref:.5f}"
     )

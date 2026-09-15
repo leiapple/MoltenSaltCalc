@@ -245,6 +245,12 @@ good-names = [
     "var_U",
     "7net",
     "test_uMLIPs",
+    "T1",
+    "T2",
+    "H",
+    "H1",
+    "H2",
+    "H_mean",
 ]
 
 [tool.pylint."MESSAGES CONTROL"]
