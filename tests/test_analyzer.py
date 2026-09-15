@@ -277,6 +277,7 @@ def test_init_missing_traj_file():
                 BASE / "test_analyzer_trajectories" / "nonexistent.traj",
             ],
             temperatures_npt=[1100, 1],
+            n_workers_load_traj=1,
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"  # type: ignore
     assert any("Trajectory file" in str(w.message) and "nonexistent.traj" in str(w.message) for w in ws)
@@ -291,6 +292,7 @@ def test_invalid_traj_file():
                 BASE / "test_analyzer_trajectories" / "invalid.traj",
             ],
             temperatures_npt=[1100, 1],
+            n_workers_load_traj=1,
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"  # type: ignore
     assert any("Error loading trajectory file" in str(w.message) and "invalid.traj" in str(w.message) for w in ws)

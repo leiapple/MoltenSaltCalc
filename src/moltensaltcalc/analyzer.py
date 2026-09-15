@@ -196,9 +196,21 @@ class MoltenSaltAnalyzer:
             (traj_file, temperature, run_id, calculator, timestep_fs, no_timestep)
             for traj_file, temperature, run_id in traj_list
         ]
-        with Pool(processes=n_workers) as pool:
-            loaded = pool.imap(_trajectory_worker, worker_args)
-            for result in tqdm(loaded, total=len(worker_args), desc=f"Loading {id_str} trajectories"):
+        if n_workers > 1:
+            with Pool(processes=n_workers) as pool:
+                loaded = pool.imap(_trajectory_worker, worker_args)
+                for result in tqdm(loaded, total=len(worker_args), desc=f"Loading {id_str} trajectories"):
+                    if result is None:
+                        continue
+                    traj, times, temperature, run_id = result
+                    valid_trajs.append(traj)
+                    valid_times_fs.append(times)
+                    valid_temperatures.append(temperature)
+                    if valid_ids is not None:
+                        valid_ids.append(run_id)
+        else:
+            for args in worker_args:
+                result = _trajectory_worker(args)
                 if result is None:
                     continue
                 traj, times, temperature, run_id = result
