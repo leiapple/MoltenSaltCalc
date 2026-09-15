@@ -507,19 +507,27 @@ class MoltenSaltAnalyzer:
 
         p = p_ext_bar * units.bar
         enthalpies = []
-        for traj, eq_times in zip(selected_trajs, [eq_times_1, eq_times_2], strict=False):
+        for i, eq_times in zip([i1, i2], [eq_times_1, eq_times_2], strict=False):
+            traj = selected_trajs[i]
             enthalpies.append(
                 np.array([atoms.get_total_energy() + p * atoms.get_volume() for atoms in traj])[eq_times]
             )  # eV
 
         # Finite-difference heat capacity
-        C = (np.mean(enthalpies[1]) - np.mean(enthalpies[0])) / (
-            (selected_temps[i2] - selected_temps[i1]) * units.J
-        )  # J/K
+        mean_h_1 = np.mean(enthalpies[0])  # eV
+        mean_h_2 = np.mean(enthalpies[1])  # eV
+        if any(traj[0].get_kinetic_energy() == 0 for traj in selected_trajs):
+            warnings.warn(
+                "Kinetic energy of the first frame is zero, which may indicate an issue with the trajectory. Proceeding with 3N/2*kB*T added to the enthalpy means.",
+                stacklevel=2,
+            )
+            mean_h_1 += 1.5 * len(selected_trajs[i1][0]) * selected_temps[i1] * units.kB
+            mean_h_2 += 1.5 * len(selected_trajs[i2][0]) * selected_temps[i2] * units.kB
+        C = (mean_h_2 - mean_h_1) / ((selected_temps[i2] - selected_temps[i1]) * units.J)  # J/K
 
         # Convert from J/K to J/g/K
-        m_tot = selected_trajs[0][0].get_masses().sum() / units.kg * 1e3
-        C /= m_tot
+        m_tot = selected_trajs[0][0].get_masses().sum() / units.kg * 1e3  # g
+        C /= m_tot  # J/g/K
 
         return C
 
