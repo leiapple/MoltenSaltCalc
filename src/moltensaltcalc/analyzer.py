@@ -373,12 +373,12 @@ class MoltenSaltAnalyzer:
 
         return eq_density
 
-    def compute_thermal_expansion(self, eq_fraction: float = 0.1, ids: list[str] | None = None) -> dict:
-        """Compute the thermal expansion coefficient from the initialized trajectory files and NPT temperatures.
+    def _select_trajs_multi_temp(self, ids: list[str] | None = None, property_name="") -> tuple[list, list, list]:
+        """Select NPT trajectories, times, and temperatures for multiple temperatures.
 
         Args:
-            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
-            ids (list, optional): Identifiers for the trajectories to be used. Defaults to None.
+            ids (list[str], optional): List of trajectory identifiers to select. Defaults to None, which selects all available NPT trajectories.
+            property_name (str, optional): Name of the property being computed. Used for error messages. Defaults to an empty string.
 
         Raises:
             ValueError: If no trajectory identifiers are provided but were not initialized.
@@ -388,13 +388,7 @@ class MoltenSaltAnalyzer:
             ValueError: If less than two NPT trajectory files are provided.
 
         Returns:
-            dict:  Thermal expansion results:
-                - "temperatures": List of temperatures used
-                - "eq_vols": Equilibrium volumes in Å³ for each temperature
-                - "eq_vols_norm": Equilibrium volumes normalized to the mean volume
-                - "fit": Fit parameters
-                - "fit_line": Fit line
-                - "thermal_expansion": Thermal expansion coefficient in 1/K
+            tuple[list, list, list]: Selected NPT trajectories, times, and temperatures.
         """
         if ids is not None:
             if self.ids_npt is None:
@@ -419,11 +413,37 @@ class MoltenSaltAnalyzer:
             selected_times = self.times_fs_npt
             selected_temps = self.temperatures_npt
         if selected_trajs is None:
-            raise ValueError("No NPT trajectory files provided. The thermal expansion cannot be computed.")
+            raise ValueError(f"No NPT trajectory files provided. The {property_name} cannot be computed.")
         if selected_temps is None:
-            raise ValueError("No NPT temperatures provided. The thermal expansion cannot be computed.")
+            raise ValueError(f"No NPT temperatures provided. The {property_name} cannot be computed.")
         if len(selected_trajs) < 2:
-            raise ValueError("At least two NPT trajectory files are required for the thermal expansion.")
+            raise ValueError(f"At least two NPT trajectory files are required for the {property_name}.")
+
+        return selected_trajs, selected_times, selected_temps  # type: ignore
+
+    def compute_thermal_expansion(self, eq_fraction: float = 0.1, ids: list[str] | None = None) -> dict:
+        """Compute the thermal expansion coefficient from the initialized trajectory files and NPT temperatures.
+
+        Args:
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            ids (list, optional): Identifiers for the trajectories to be used. Defaults to None.
+
+        Raises:
+            ValueError: If insufficient NPT trajectory files or temperatures are available for the computation.
+
+        Returns:
+            dict:  Thermal expansion results:
+                - "temperatures": List of temperatures used
+                - "eq_vols": Equilibrium volumes in Å³ for each temperature
+                - "eq_vols_norm": Equilibrium volumes normalized to the mean volume
+                - "fit": Fit parameters
+                - "fit_line": Fit line
+                - "thermal_expansion": Thermal expansion coefficient in 1/K
+        """
+
+        # Select the NPT trajectories, times, and temperatures
+        selected_trajs, selected_times, selected_temps = self._select_trajs_multi_temp(ids, "thermal expansion")
+
         # Get the equilibrium volumes for each trajectory file
         eq_vols = np.zeros(len(selected_trajs))
         for i, (traj, times) in enumerate(zip(selected_trajs, selected_times, strict=False)):  # type: ignore
@@ -446,7 +466,64 @@ class MoltenSaltAnalyzer:
             "thermal_expansion": fit[0],
         }
 
-    def compute_heat_capacity(self, T: int | float, traj_id: str | None = None, eq_fraction: float = 0.1) -> float:
+    def compute_heat_capacity_cp(
+        self,
+        T: int | float,
+        ids: list[str] | None = None,
+        eq_fraction: float = 0.1,
+        p_ext_bar: float = 1.01325,
+    ) -> float:
+        """Compute heat capacity from finite differences of the mean enthalpy using NPT trajectories.
+
+        Args:
+            T (int, float): Central temperature in K. The two trajectories closest to this temperature are used.
+            ids (list[str], optional): List of trajectory identifiers to select. Defaults to None, which selects all available NPT trajectories.
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            p_ext_bar (float, optional): External pressure in bar. Defaults to 1.01325 = 1 atm.
+
+        Raises:
+            ValueError: If the specified temperature T is outside the range of available NPT temperatures.
+            ValueError: If insufficient NPT trajectory files or temperatures are available for the computation.
+
+        Returns:
+            float: Heat capacity in J/g/K
+        """
+        selected_trajs, selected_times, selected_temps = self._select_trajs_multi_temp(ids, "heat capacity")
+
+        # Sort trajectories by temperature
+        order = np.argsort(selected_temps)
+        selected_trajs = [selected_trajs[i] for i in order]
+        selected_times = [selected_times[i] for i in order]
+        selected_temps = [selected_temps[i] for i in order]
+
+        # Find the two temperatures surrounding T
+        idx = np.searchsorted(selected_temps, T)
+        if idx == 0 or idx == len(selected_temps):
+            raise ValueError(f"T={T} K must lie between two available NPT temperatures.")
+
+        i1, i2 = idx - 1, idx
+        eq_times_1 = self._get_eq_times(eq_fraction, selected_times[i1])
+        eq_times_2 = self._get_eq_times(eq_fraction, selected_times[i2])
+
+        p = p_ext_bar * units.bar
+        enthalpies = []
+        for traj, eq_times in zip(selected_trajs, [eq_times_1, eq_times_2], strict=False):
+            enthalpies.append(
+                np.array([atoms.get_total_energy() + p * atoms.get_volume() for atoms in traj])[eq_times]
+            )  # eV
+
+        # Finite-difference heat capacity
+        C = (np.mean(enthalpies[1]) - np.mean(enthalpies[0])) / (
+            (selected_temps[i2] - selected_temps[i1]) * units.J
+        )  # J/K
+
+        # Convert from J/K to J/g/K
+        m_tot = selected_trajs[0][0].get_masses().sum() / units.kg * 1e3
+        C /= m_tot
+
+        return C
+
+    def compute_heat_capacity_cv(self, T: int | float, traj_id: str | None = None, eq_fraction: float = 0.1) -> float:
         """Compute heat capacity from total energy fluctuations. If both NPT and NVT trajectories are loaded, the heat capacity is computed from the NVT trajectory.
 
         Args:
@@ -636,7 +713,7 @@ class MoltenSaltAnalyzer:
         """
         n = len(x)
         f = np.fft.fft(x, n=2 * n)
-        acf = np.fft.ifft(f * np.conjugate(f))[:nmax].real
+        acf = np.fft.ifft(f * np.conjugate(f))[:nmax].real  # type: ignore
         norm = np.arange(n, n - nmax, -1)
         return acf / norm
 
@@ -733,8 +810,8 @@ if __name__ == "__main__":  # pragma: no cover
     #   Heat Capacity
     # ===================================================================================
     for temp in temps:
-        heat_cap = analyzer.compute_heat_capacity(T=temp, eq_fraction=EQ_FRAC)
-        print(f"Heat capacity at {temp} K: C = {heat_cap:.6e} J/g/K")
+        heat_cap = analyzer.compute_heat_capacity_cv(T=temp, eq_fraction=EQ_FRAC)
+        print(f"Heat capacity at {temp} K: c_v = {heat_cap:.6e} J/g/K")
 
     # ===================================================================================
     #   Diffusion Coefficient
