@@ -28,6 +28,53 @@ def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
     return rdf, distances
 
 
+def _trajectory_worker(args):
+    """Load one trajectory and return it with its computed times and metadata."""
+    traj_file, temperature, run_id, calculator, timestep_fs, no_timestep = args
+    if not Path(traj_file).exists():
+        warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
+        return None
+
+    try:
+        traj_obj = Trajectory(traj_file)
+        traj = []
+        for i, atoms in enumerate(traj_obj):  # type: ignore
+            try:
+                traj.append(atoms)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                warnings.warn(
+                    f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
+                    stacklevel=2,
+                )
+    except InvalidULMFileError as e:
+        warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
+        return None
+
+    if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:
+        times = np.array([atoms.info["time_fs"] for atoms in traj])
+    else:
+        if no_timestep:
+            warnings.warn(
+                f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of "
+                f"{timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
+                stacklevel=2,
+            )
+        times = np.arange(len(traj)) * timestep_fs
+
+    if calculator is not None:
+        try:
+            for atoms in traj:
+                atoms.calc = calculator
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            warnings.warn(
+                f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
+                stacklevel=2,
+            )
+            return None
+
+    return traj, times, temperature, run_id
+
+
 class MoltenSaltAnalyzer:
     """
     Class for analyzing molten salt simulation results.
@@ -43,6 +90,7 @@ class MoltenSaltAnalyzer:
         ids_nvt: list[str] | None = None,
         timestep_fs: int | float | None = None,
         calculator: Calculator | None = None,
+        n_workers_load_traj: int | None = None,
     ):
         """Initialize the analyzer with the trajectories and the always used properties
 
@@ -55,6 +103,7 @@ class MoltenSaltAnalyzer:
             ids_nvt (list, optional): List of identifiers for the NVT trajectories. Defaults to None.
             timestep_fs (int, float, optional): Constant timestep in fs. Only applies if time_fs is not found in the trajectory files. Defaults to None which is treated as 10.0 later but a warning is issued.
             calculator (ase.calculators.calculator, optional): Calculator to use for the energy and forces predictions (needed in case they are not available from the trajectory files, but leads to a slow initialization). Defaults to None.
+            n_workers_load_traj (int, optional): Number of workers to use for loading the trajectory files in parallel. Defaults to None, which means the maximum of len(traj_files_npt) and len(traj_files_nvt) capped by 20.
 
         Raises:
             ValueError: If the number of trajectory files is not equal to the number of temperatures.
@@ -84,13 +133,36 @@ class MoltenSaltAnalyzer:
         if isinstance(traj_files_nvt, (str, Path)):
             traj_files_nvt = [Path(traj_files_nvt)]
 
+        if n_workers_load_traj is None:
+            n_workers_load_traj = min(
+                max(
+                    len(traj_files_npt) if traj_files_npt is not None else 0,
+                    len(traj_files_nvt) if traj_files_nvt is not None else 0,
+                ),
+                20,
+            )
+
         if traj_files_npt is not None:
             self.trajs_npt, self.times_fs_npt, self.temperatures_npt, self.ids_npt = self._load_trajectories(
-                traj_files_npt, temperatures_npt, ids_npt, calculator, "NPT", timestep_fs, no_timestep
+                traj_files_npt,
+                temperatures_npt,
+                ids_npt,
+                calculator,
+                "NPT",
+                timestep_fs,
+                no_timestep,
+                n_workers_load_traj,
             )
         if traj_files_nvt is not None:
             self.trajs_nvt, self.times_fs_nvt, self.temperatures_nvt, self.ids_nvt = self._load_trajectories(
-                traj_files_nvt, temperatures_nvt, ids_nvt, calculator, "NVT", timestep_fs, no_timestep
+                traj_files_nvt,
+                temperatures_nvt,
+                ids_nvt,
+                calculator,
+                "NVT",
+                timestep_fs,
+                no_timestep,
+                n_workers_load_traj,
             )
 
     def _load_trajectories(
@@ -102,6 +174,7 @@ class MoltenSaltAnalyzer:
         id_str: str,
         timestep_fs: float,
         no_timestep: bool,
+        n_workers: int = 1,
     ) -> tuple[list | None, list | None, list | None, list | None]:
         """Load the trajectories from the provided files."""
         if temperatures is None or len(traj_files) != len(temperatures):
@@ -119,54 +192,21 @@ class MoltenSaltAnalyzer:
                 strict=True,
             )
         )
-        for traj_file, temperature, run_id in tqdm(traj_list, desc="Loading trajectories"):
-            if not Path(traj_file).exists():
-                warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-                continue
-            try:
-                traj_obj = Trajectory(traj_file)
-                # Check that all frames are readable
-                traj = []
-                bad_frames = []
-                for i in range(len(traj_obj)):  # pylint: disable=consider-using-enumerate
-                    try:
-                        atoms = traj_obj[i]  # type: ignore
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        bad_frames.append(i)
-                        warnings.warn(
-                            f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
-                            stacklevel=2,
-                        )
-                        continue
-                    traj.append(atoms)
-
-            except InvalidULMFileError as e:
-                warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-                continue
-            if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:  # type: ignore
-                times = np.array([atoms.info["time_fs"] for atoms in traj])  # type: ignore
-            else:
-                if no_timestep:
-                    warnings.warn(
-                        f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of {timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                        stacklevel=2,
-                    )
-                times = np.arange(len(traj)) * timestep_fs
-            if calculator is not None:
-                try:
-                    for atoms in traj:  # type: ignore
-                        atoms.calc = calculator
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    warnings.warn(
-                        f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
-                        stacklevel=2,
-                    )
+        worker_args = [
+            (traj_file, temperature, run_id, calculator, timestep_fs, no_timestep)
+            for traj_file, temperature, run_id in traj_list
+        ]
+        with Pool(processes=n_workers) as pool:
+            loaded = pool.imap(_trajectory_worker, worker_args)
+            for result in tqdm(loaded, total=len(worker_args), desc=f"Loading {id_str} trajectories"):
+                if result is None:
                     continue
-            valid_trajs.append(traj)
-            valid_times_fs.append(times)
-            valid_temperatures.append(temperature)
-            if valid_ids is not None:
-                valid_ids.append(run_id)
+                traj, times, temperature, run_id = result
+                valid_trajs.append(traj)
+                valid_times_fs.append(times)
+                valid_temperatures.append(temperature)
+                if valid_ids is not None:
+                    valid_ids.append(run_id)
 
         return (
             valid_trajs,
