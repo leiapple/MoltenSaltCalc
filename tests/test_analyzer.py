@@ -361,6 +361,9 @@ def test_invalid_thm_expansion(analyzer, monkeypatch):
     with pytest.raises(ValueError) as e:
         analyzer.compute_thermal_expansion(eq_fraction=0.1)
     assert "No NPT trajectory files provided" in str(e.value)
+    with pytest.raises(ValueError) as e:
+        analyzer.compute_thermal_expansion(ids=["nonexistent_id"])
+    assert "The ids: ['nonexistent_id'] are not available in the initialized NPT trajectories." in str(e.value)
 
 
 def test_rdf_no_pairs(analyzer):

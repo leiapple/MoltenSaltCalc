@@ -395,10 +395,9 @@ class MoltenSaltAnalyzer:
                 raise ValueError(
                     "Trajectory identifiers were not initialized, cannot select by id. Please omit the ids argument."
                 )
-            if not all(id in self.ids_npt for id in ids):
-                raise ValueError(
-                    "At least one of the provided ids is not available in the initialized NPT trajectories."
-                )
+            missing_ids = [id for id in ids if id not in self.ids_npt]
+            if missing_ids:
+                raise ValueError(f"The ids: {missing_ids} are not available in the initialized NPT trajectories.")
             selected_trajs = []
             selected_times = []
             selected_temps = []
