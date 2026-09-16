@@ -292,7 +292,7 @@ class MoltenSaltAnalyzer:
 
         return next(iter(candidates.values()))
 
-    def _get_eq_times(self, eq_fraction: float, times_fs: np.ndarray) -> np.ndarray:
+    def _get_eq_indices(self, eq_fraction: float, times_fs: np.ndarray) -> np.ndarray:
         """Gets the indices of the simulation times later than 1-eq_fraction of the total simulation time.
 
         Args:
@@ -302,8 +302,8 @@ class MoltenSaltAnalyzer:
         Returns:
             np.ndarray: Indices of the simulation times later than 1-eq_fraction of the total simulation time.
         """
-        eq_times = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
-        return eq_times
+        eq_indices = np.where(times_fs >= np.max(times_fs) * (1 - eq_fraction))[0]
+        return eq_indices
 
     def compute_temperature_vs_time(
         self, traj_id: str | None = None, T: int | float | None = None, eq_fraction: float = 0.1, ensemble: str = "nvt"
@@ -325,23 +325,29 @@ class MoltenSaltAnalyzer:
             raise ValueError("eq_fraction must be between 0 and 1.")
 
         traj, times = self._select_trajectory(ensemble, T, traj_id)
-        eq_times = self._get_eq_times(eq_fraction, times)
-        temperatures = np.array([atoms.get_temperature() for atoms in traj])[eq_times]
-        return temperatures, eq_times
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        traj = [traj[i] for i in eq_indices]
+        temperatures = np.array([atoms.get_temperature() for atoms in traj])
+        return temperatures, eq_indices
 
     def compute_density_vs_time(
-        self, traj_id: str | None = None, T: int | float | None = None
+        self, traj_id: str | None = None, T: int | float | None = None, eq_fraction: float | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
         """Compute the density from the trajectory file. If both NPT and NVT trajectories are loaded, the density is computed from the NPT trajectory.
 
         Args:
             traj_id (str, optional): Identifier for the trajectory. Defaults to None.
             T (int, float, optional): Temperature in K. The trajectory with the matching temperature is selected if traj_id is None. Defaults to None.
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to None.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Densities in g/cm³ and times in fs.
         """
         traj, times = self._select_trajectory("npt", T, traj_id)
+        if eq_fraction is not None:
+            eq_indices = self._get_eq_indices(eq_fraction, times)
+            traj = [traj[i] for i in eq_indices]
+            times = times[eq_indices]
         masses = traj[0].get_masses().sum() / units.kg * 1e3  # g
         volumes = np.array([atoms.get_volume() for atoms in traj]) * 1e-24  # cm³
         densities = masses / volumes  # g/cm³
@@ -367,9 +373,8 @@ class MoltenSaltAnalyzer:
         if eq_fraction > 1.0 or eq_fraction < 0.0:
             raise ValueError("eq_fraction must be between 0 and 1.")
 
-        densities, times_fs = self.compute_density_vs_time(traj_id, T)
-        eq_times = self._get_eq_times(eq_fraction, times_fs)
-        eq_density = np.mean(densities[eq_times], dtype="float64")  # g/cm³
+        densities, _ = self.compute_density_vs_time(traj_id, T, eq_fraction)
+        eq_density = np.mean(densities, dtype="float64")  # g/cm³
 
         return eq_density
 
@@ -449,9 +454,10 @@ class MoltenSaltAnalyzer:
         # Get the equilibrium volumes for each trajectory file
         eq_vols = np.zeros(len(selected_trajs))
         for i, (traj, times) in enumerate(zip(selected_trajs, selected_times, strict=False)):  # type: ignore
+            eq_indices = self._get_eq_indices(eq_fraction, times)
+            traj = [traj[i] for i in eq_indices]
             volumes = np.array([atoms.get_volume() for atoms in traj])  # Å³
-            eq_times = self._get_eq_times(eq_fraction, times)
-            eq_vol = np.mean(volumes[eq_times])  # Å³
+            eq_vol = np.mean(volumes)  # Å³
             eq_vols[i] = eq_vol
 
         # Fit linear thermal expansion to the volumes normalized by the mean volume
@@ -481,8 +487,9 @@ class MoltenSaltAnalyzer:
         Returns:
             float: Mean enthalpy of the trajectory.
         """
-        eq_indices = self._get_eq_times(eq_fraction, times)
-        H = np.array([atoms.get_total_energy() + pressure * atoms.get_volume() for atoms in traj])[eq_indices]  # eV
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        traj = [traj[i] for i in eq_indices]
+        H = np.array([atoms.get_total_energy() + pressure * atoms.get_volume() for atoms in traj])  # eV
         H_mean = np.mean(H)  # eV
         if traj[0].get_kinetic_energy() == 0:
             H_mean += 1.5 * len(traj[0]) * T * units.kB  # eV
@@ -564,8 +571,9 @@ class MoltenSaltAnalyzer:
         """
         # Can only select based on temperature if the traj temperatures are provided
         traj, times = self._select_trajectory("nvt", T, traj_id)
-        eq_times = self._get_eq_times(eq_fraction, times)
-        U = np.array([atoms.get_total_energy() for atoms in traj])[eq_times]
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        traj = [traj[i] for i in eq_indices]
+        U = np.array([atoms.get_total_energy() for atoms in traj])
         # Compute the variation and get the approximate heat capacity C
         var_U = np.var(U, ddof=1) / units.J**2  # J²
         m_tot = traj[0].get_masses().sum() / units.kg * 1e3  # g
@@ -748,6 +756,7 @@ class MoltenSaltAnalyzer:
     def compute_viscosity(
         self,
         T: float,
+        eq_fraction: float = 0.1,
         traj_id: str | None = None,
         tmax_fs: int = 20000,
     ) -> tuple[float, tuple[np.ndarray, np.ndarray]]:
@@ -756,6 +765,7 @@ class MoltenSaltAnalyzer:
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
             traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
+            eq_fraction (float, optional): Fraction of the trajectory to consider as equilibrated. Defaults to 0.1.
             tmax_fs (int, optional): Maximum correlation time in femtoseconds. Defaults to 20000.
 
         Raises:
@@ -770,6 +780,10 @@ class MoltenSaltAnalyzer:
         # Can only select based on temperature if the traj temperatures are provided
         traj, times = self._select_trajectory("nvt", T, traj_id)
 
+        # Check only the equilibrated parts
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        times = times[eq_indices]
+
         # Ensure a constant timestep
         dt = times[1] - times[0]
         if not np.allclose(np.diff(times), dt):
@@ -780,6 +794,7 @@ class MoltenSaltAnalyzer:
         nmax = min(len(times), int(np.ceil(tmax_fs / dt)))
 
         # Get the stress tensors and extract the shear stress components
+        traj = [traj[i] for i in eq_indices]
         stress_ts = np.array([atoms.get_stress() for atoms in traj], dtype=float)  # eV/Å³
         shear_stress = stress_ts[:, 3:]  # eV/Å³
         # Remove means to isolate equilibrium fluctuations
@@ -790,7 +805,7 @@ class MoltenSaltAnalyzer:
             [self._autocorr_fft(shear_stress[:, i], nmax) for i in range(shear_stress.shape[1])],
             axis=0,
         )  # eV²/Å⁶
-        ac_times = np.arange(ac_mean.size) * dt  # fs
+        ac_times = times[0] + np.arange(ac_mean.size) * dt  # fs
 
         # Get the viscosity coefficient by integrating the autocorrelation function
         integral = np.trapezoid(ac_mean, ac_times)  # eV²/Å⁶ fs

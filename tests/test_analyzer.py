@@ -77,11 +77,11 @@ def test_init_string_input():
     assert len(ana.trajs_nvt) == 1  # type: ignore
 
 
-def test_get_eq_times():
+def test_get_eq_indices():
     """Test that the equilibrium times are correctly extracted."""
     ana = msc.MoltenSaltAnalyzer()
     times = np.array([0, 10, 20, 30, 40])
-    idx = ana._get_eq_times(0.5, times)
+    idx = ana._get_eq_indices(0.5, times)
     assert np.array_equal(idx, np.array([2, 3, 4]))
 
 
@@ -257,7 +257,7 @@ def test_autocorr_fft_known_signal(analyzer):
 
 def test_compute_viscosity(analyzer):
     """Test that the shear viscosity is computed correctly."""
-    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=41)
+    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=41, eq_fraction=1.0)
     assert isinstance(viscosity, tuple), "Viscosity results are not returned as a tuple"
     assert len(viscosity) == 2, "Viscosity results do are not of expected length 2"
     eta, eta_ref = viscosity[0], 0.00015
@@ -382,5 +382,5 @@ def test_viscosity_nonconstant_timestep():
         temperatures_nvt=[1200],
     )
     with pytest.raises(ValueError) as e:
-        ana.compute_viscosity(T=1200)
+        ana.compute_viscosity(T=1200, eq_fraction=1.0)
     assert "The timestep between the frames is not constant" in str(e.value)
