@@ -12,6 +12,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
+from scipy.integrate import cumulative_trapezoid
 from tqdm import tqdm
 
 
@@ -748,6 +749,7 @@ class MoltenSaltAnalyzer:
             np.ndarray: Normalized autocorrelation function
         """
         n = len(x)
+        nmax = min(nmax, n)
         f = np.fft.fft(x, n=2 * n)
         acf = np.fft.ifft(f * np.conjugate(f))[:nmax].real  # type: ignore
         norm = np.arange(n, n - nmax, -1)
@@ -758,9 +760,9 @@ class MoltenSaltAnalyzer:
         T: float,
         eq_fraction: float = 0.1,
         traj_id: str | None = None,
-        tmax_fs: int = 20000,
-    ) -> tuple[float, tuple[np.ndarray, np.ndarray]]:
-        """Compute shear viscosity using Green-Kubo relation. The timestep between frames has to be constant.
+        tmax_fs: list[int] | np.ndarray | int = 20000,
+    ) -> tuple[np.ndarray | float, tuple[np.ndarray, np.ndarray]]:
+        """Compute shear viscosity using the Green-Kubo relation. The timestep between frames has to be constant.
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
@@ -770,6 +772,7 @@ class MoltenSaltAnalyzer:
 
         Raises:
             ValueError: If the timestep between the frames is not constant.
+            ValueError: If any of the tmax_fs values are non-positive.
 
         Returns:
             Tuple[float, Tuple[np.ndarray, np.ndarray]]: Viscosity in Pa s and the autocorrelation function and times:
@@ -790,8 +793,18 @@ class MoltenSaltAnalyzer:
             raise ValueError(
                 f"The timestep between the frames is not constant ({np.unique(np.round(np.diff(times), 8))} fs occur)."
             )
-        # Get the maximum difference in number of frames to compute the autocorrelation for
-        nmax = min(len(times), int(np.ceil(tmax_fs / dt)))
+
+        # Convert tmax_fs to an array
+        tmax_fs = np.asarray(tmax_fs, dtype=float)
+
+        if np.any(tmax_fs <= 0):
+            raise ValueError("All tmax_fs values must be positive.")
+
+        # Get the maximum difference in number of frames to compute the autocorrelation for (largest tmax_fs)
+        nmax = min(
+            len(times),
+            int(np.ceil(np.max(tmax_fs) / dt)) + 1,
+        )
 
         # Get the stress tensors and extract the shear stress components
         traj = [traj[i] for i in eq_indices]
@@ -805,15 +818,24 @@ class MoltenSaltAnalyzer:
             [self._autocorr_fft(shear_stress[:, i], nmax) for i in range(shear_stress.shape[1])],
             axis=0,
         )  # eV²/Å⁶
-        ac_times = times[0] + np.arange(ac_mean.size) * dt  # fs
+        ac_times = np.arange(ac_mean.size) * dt  # fs
 
         # Get the viscosity coefficient by integrating the autocorrelation function
-        integral = np.trapezoid(ac_mean, ac_times)  # eV²/Å⁶ fs
+        cumulative_integral = np.concatenate([[0.0], cumulative_trapezoid(ac_mean, ac_times)])  # eV²/Å⁶ fs
         V = np.mean([atoms.get_volume() for atoms in traj])  # Å³
-        eta = V * integral / (units.kB / units.C * T)  # eV²/(Å³ J/K K) fs = eV²/(Å³ J) fs
-        eta /= units.J**2 * 1e-15  # J/m³ s = Pa s
 
-        return (eta, (ac_mean, ac_times))
+        # Convert cumulative integral to viscosity for different tmax_fs (max autocorrelation times)
+        eta_running = V * cumulative_integral / (units.kB / units.C * T)  # eV²/(Å³ J/K K) fs = eV²/(Å³ J) fs
+
+        eta_running /= units.J**2 * 1e-15  # J/m³ s = Pa s
+
+        eta = np.interp(
+            tmax_fs,
+            ac_times,
+            eta_running,
+        )
+
+        return (eta, (ac_mean, ac_times + times[0]))
 
 
 # Example usage
