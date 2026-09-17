@@ -281,12 +281,10 @@ class MoltenSaltSimulator:
         cations = np.random.permutation(np.repeat(salt_cation, n_cations))
         anions = np.random.permutation(np.repeat(salt_anion, n_anions))
         n_tot = len(cations) + len(anions)
-        idx = np.linspace(0, n_tot - 1, len(cations), dtype=int)
-        mask = np.zeros(n_tot, dtype=bool)
-        mask[idx] = True
+        cat_mask = np.zeros(n_tot, dtype=bool)
+        cat_mask[np.linspace(0, n_tot - 1, len(cations), dtype=int)] = True
         symbols = np.empty(n_tot, dtype="<U2")
-        symbols[mask] = cations
-        symbols[~mask] = anions
+        symbols[cat_mask], symbols[~cat_mask] = cations, anions
 
         # Calculate initial box size from density guess
         mass = sum(atomic_masses[atomic_numbers[sym]] for sym in symbols)  # amu
@@ -331,14 +329,16 @@ class MoltenSaltSimulator:
             if len(atoms) > len(symbols):
                 if random_removal:
                     # Randomly select the respective amount of anion and cation positions to remove
-                    num_an_positions_to_remove = int(len(atoms) / 2 - len(anions))
-                    cat_indices_to_remove = np.random.choice(
+                    frac_anions = len(anions) / len(symbols)
+                    num_an_positions_to_remove = int(len(atoms) * frac_anions - len(anions))
+                    an_indices_to_remove = np.random.choice(
                         np.arange(0, len(atoms), 2),
                         size=num_an_positions_to_remove,
                         replace=False,
                     )
-                    num_cat_positions_to_remove = int(len(atoms) / 2 - len(cations))
-                    an_indices_to_remove = np.random.choice(
+                    # Whatever is left from positions
+                    num_cat_positions_to_remove = int(len(atoms) - num_an_positions_to_remove - len(symbols))
+                    cat_indices_to_remove = np.random.choice(
                         np.arange(1, len(atoms), 2),
                         size=num_cat_positions_to_remove,
                         replace=False,
