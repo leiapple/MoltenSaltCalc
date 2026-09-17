@@ -933,7 +933,7 @@ if __name__ == "__main__":  # pragma: no cover
     )
 
     # Assumes the NPT and NVT trajectories have already been generated with the simulator (generate with simulator.py)
-    base_dir = os.path.join("demo", "demo_simulation_results", "GRACE_1L_NaCl_super_short")
+    base_dir = os.path.join("demo", "demo_simulation_results", "NaCl_super_short")
     npt_dir = os.path.join(base_dir, "NPT")
     nvt_dir = os.path.join(base_dir, "NVT")
     temps = [1100, 1150, 1200]
@@ -973,8 +973,8 @@ if __name__ == "__main__":  # pragma: no cover
     for temp in temps:
         # Set up the analyzer for each of the NVT trajectories to get the diffusion coefficient there
         diff_coeff = analyzer.compute_diffusion_coefficient(T=temp)
-        print(f"Diffusion coefficient at {temp} K: D = {diff_coeff:.6e} Å²/fs")
-        diff_coeffs.append(diff_coeff)
+        print(f"Diffusion coefficient at {temp} K: D_Na = {diff_coeff['Na']:.6e} Å²/fs")
+        diff_coeffs.append(diff_coeff["Na"])
     # Get the activation energy
     diffusion_results = analyzer.fit_arrhenius(temps, diff_coeffs)
     print(
@@ -994,6 +994,6 @@ if __name__ == "__main__":  # pragma: no cover
     #   Viscosity
     # ===================================================================================
     for temp in temps:
-        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(T=temp)
+        viscosity, (autocorr_mean, autocorr_times) = analyzer.compute_viscosity(T=temp, eq_fraction=0.8)
         # autocorr_mean and autocorr_times can be used to check that the plateau of the autocorrelation function reaches tmax_fs
         print(f"Viscosity at {temp} K: η = {viscosity:.6e} Pa·s")
