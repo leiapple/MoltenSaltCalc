@@ -801,10 +801,7 @@ class MoltenSaltAnalyzer:
             raise ValueError("All tmax_fs values must be positive.")
 
         # Get the maximum difference in number of frames to compute the autocorrelation for (largest tmax_fs)
-        nmax = min(
-            len(times),
-            int(np.ceil(np.max(tmax_fs) / dt)) + 1,
-        )
+        nmax = len(times[times - times[0] <= np.max(tmax_fs)])
 
         # Get the stress tensors and extract the shear stress components
         traj = [traj[i] for i in eq_indices]

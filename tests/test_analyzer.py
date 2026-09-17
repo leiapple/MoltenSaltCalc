@@ -257,7 +257,7 @@ def test_autocorr_fft_known_signal(analyzer):
 
 def test_compute_viscosity(analyzer):
     """Test that the shear viscosity is computed correctly."""
-    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=41, eq_fraction=1.0)
+    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=40, eq_fraction=1.0)
     assert isinstance(viscosity, tuple), "Viscosity results are not returned as a tuple"
     assert len(viscosity) == 2, "Viscosity results do are not of expected length 2"
     eta, eta_ref = viscosity[0], 0.00015
