@@ -251,6 +251,8 @@ good-names = [
     "H1",
     "H2",
     "H_mean",
+    "eta_Pa_s_list",
+    "std_threshold_Pa_s",
 ]
 
 [tool.pylint."MESSAGES CONTROL"]

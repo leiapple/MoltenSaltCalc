@@ -257,20 +257,31 @@ def test_autocorr_fft_known_signal(analyzer):
 
 def test_compute_viscosity(analyzer):
     """Test that the shear viscosity is computed correctly."""
-    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=40, eq_fraction=1.0)
+    tmax_fs = [40, 60, 80]
+    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=tmax_fs, eq_fraction=1.0)
     assert isinstance(viscosity, tuple), "Viscosity results are not returned as a tuple"
     assert len(viscosity) == 2, "Viscosity results do are not of expected length 2"
-    eta, eta_ref = viscosity[0], 0.00015
-    assert np.isclose(eta, eta_ref, atol=1e-5), f"Viscosity is {eta:.5f} instead of {eta_ref:.5f}"
+    eta, eta_ref = viscosity[0], [1.49408632e-04, 9.24734496e-05, -3.76017491e-05]
+    assert np.allclose(eta, eta_ref, atol=1e-5), f"Viscosity is {eta} instead of {eta_ref}"
     (autocorrelation, times), autocorrelation_ref, times_ref = (
         viscosity[1],
-        [6.78166120e-07, 4.15856007e-07, -5.36254178e-08],
-        [0.0, 20.0, 40.0],
+        [6.78166120e-07, 4.15856007e-07, -5.36254178e-08, -5.01309146e-07, -7.66504895e-07],
+        [0.0, 20.0, 40.0, 60.0, 80.0],
     )
     assert np.allclose(autocorrelation, autocorrelation_ref, atol=1e-5), (
         f"Autocorrelation function is {autocorrelation} instead of {autocorrelation_ref}"
     )
     assert np.allclose(times, times_ref, atol=1e-5), f"Autocorrelation times are {times} instead of {times_ref}"
+    res = analyzer.viscosity_vs_tmax_find_plateau(tmax_fs_list=tmax_fs, eta_Pa_s_list=eta, min_window_size_fs=40)
+    eta_mean, eta_mean_ref = res[0], 6.809344412561431e-05
+    eta_std, eta_std_ref = res[1], 9.585931955734695e-05
+    plateau_t, plateau_t_ref = res[2], [40.0, 60.0, 80.0]
+    assert len(plateau_t) == len(plateau_t_ref), (
+        f"Plateau times length is {len(plateau_t)} instead of {len(plateau_t_ref)}"
+    )
+    assert np.allclose(plateau_t, plateau_t_ref), f"Plateau times are {plateau_t} instead of {plateau_t_ref}"
+    assert np.isclose(eta_mean, eta_mean_ref), f"Plateau mean is {eta_mean} instead of {eta_mean_ref}"
+    assert np.isclose(eta_std, eta_std_ref), f"Plateau std is {eta_std} instead of {eta_std_ref}"
 
 
 # =========================================================

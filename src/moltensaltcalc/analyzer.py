@@ -823,16 +823,107 @@ class MoltenSaltAnalyzer:
 
         # Convert cumulative integral to viscosity for different tmax_fs (max autocorrelation times)
         eta_running = V * cumulative_integral / (units.kB / units.C * T)  # eV²/(Å³ J/K K) fs = eV²/(Å³ J) fs
-
         eta_running /= units.J**2 * 1e-15  # J/m³ s = Pa s
-
         eta = np.interp(
             tmax_fs,
             ac_times,
             eta_running,
         )
-
         return (eta, (ac_mean, ac_times + times[0]))
+
+    def viscosity_vs_tmax_find_plateau(
+        self,
+        tmax_fs_list: list[float],
+        eta_Pa_s_list: list[float],
+        min_window_size_fs: float = 1000,
+        std_threshold_Pa_s: float = 100,
+        slope_threshold: float = 5e-2,
+        min_consecutive_windows: int = 1,
+    ) -> tuple:
+        """Given different values for the viscosity (eta) from different maximal integration times (tmax_fs), finds the longest plateau of a minimum size (min_window_size_fs) and computes the mean and std on that plateau.
+
+        Args:
+            tmax_fs_list (list[float]): List of upper limits for the ACF integration times in femtoseconds.
+            eta_Pa_s_list (list[float]): List of viscosity values corresponding to the tmax_fs_list in Pa s.
+            min_window_size_fs (float): Minimum size of the window for local statistics in femtoseconds. Defaults to 1000.
+            std_threshold_Pa_s (float): Threshold for the standard deviation of the viscosity within a window in Pa s to consider it to a plateau. Defaults to 100.
+            slope_threshold (float): Maximum allowed slope (absolute value) of the viscosity in Pa s per femtosecond. Defaults to 5e-2.
+            min_consecutive_windows (int, optional): Minimum number of consecutive windows that must satisfy the std and slope criteria to consider a plateau. Defaults to 1.
+
+        Raises:
+            ValueError: If tmax_fs_list or eta_Pa_s_list are not 1D arrays.
+            ValueError: If tmax_fs_list and eta_Pa_s_list have different lengths.
+            ValueError: If less than two data points are provided.
+            ValueError: If tmax_fs_list is not regularly spaced.
+            ValueError: If min_window_size_fs is smaller than two data points.
+            ValueError: If min_window_size_fs is longer than the available tmax range.
+            RuntimeError: If no plateau satisfying the criteria is found.
+
+        Returns:
+            tuple: A tuple containing:
+            - eta_mean (float): Mean viscosity value within the plateau.
+            - eta_std (float): Standard deviation of the viscosity within the plateau.
+            - plateau_t (list[float]): List of tmax values corresponding to the plateau.
+        """
+        tmax = np.asarray(tmax_fs_list, dtype=float)  # fs
+        eta = np.asarray(eta_Pa_s_list, dtype=float)  # Pa s
+
+        # Input validations
+        if tmax.ndim != 1 or eta.ndim != 1:
+            raise ValueError("tmax_fs_list and eta_Pa_s_list must be 1D arrays.")
+        if len(tmax) != len(eta):
+            raise ValueError("tmax_fs_list and eta_Pa_s_list must have the same length.")
+        if len(tmax) < 2:
+            raise ValueError("At least two data points are required for tmax_list.")
+
+        order = np.argsort(tmax)
+        tmax = tmax[order]  # fs
+        eta = eta[order]  # Pa s
+        dt = tmax[1] - tmax[0]  # fs
+        window_n = int(np.ceil(min_window_size_fs / dt))
+
+        if not np.allclose(np.diff(tmax), dt):
+            raise ValueError(f"tmax_list must be regularly spaced ({np.unique(np.round(np.diff(tmax), 8))} fs occur).")
+        if window_n < 2:
+            raise ValueError(f"min_window_size_fs={min_window_size_fs} must contain at least two data points.")
+        if window_n > len(tmax):
+            raise ValueError(
+                f"min_window_size_fs={min_window_size_fs} is longer than the available tmax range ({tmax[-1] - tmax[0]} fs)."
+            )
+        if min_consecutive_windows < 1:
+            raise ValueError(f"min_consecutive_windows={min_consecutive_windows} must be at least 1.")
+
+        # Calculate all rolling statistics at once. Since tmax is regularly spaced, the least-squares slope has a constant denominator for every window
+        windows = np.lib.stride_tricks.sliding_window_view(eta, window_n)
+        window_means = windows.mean(axis=1)
+        window_stds = windows.std(axis=1, ddof=1)
+        offsets = np.arange(window_n, dtype=float)
+        slope_denominator = np.sum((offsets - offsets.mean()) ** 2)
+        window_slopes = (windows - window_means[:, None]) @ (offsets - offsets.mean()) / (dt * slope_denominator)
+        acceptable = (window_stds <= std_threshold_Pa_s) & (np.abs(window_slopes) <= slope_threshold)
+        # Find the first plateau
+        consecutive = (
+            np.convolve(
+                acceptable.astype(int),
+                np.ones(min_consecutive_windows, dtype=int),
+                mode="valid",
+            )
+            == min_consecutive_windows
+        )
+        plateau_starts = np.flatnonzero(consecutive)
+        if not plateau_starts.size:
+            raise RuntimeError("No viscosity plateau satisfying the specified criteria was found.")
+        start_window = plateau_starts[0]
+        # Extend the plateau, as long as the local window remains acceptable
+        end_window = start_window
+        while end_window + 1 < len(acceptable) and acceptable[end_window + 1]:
+            end_window += 1
+        # Final statistics over the entire selected plateau
+        plateau_t = tmax[start_window : end_window + window_n]
+        plateau_eta = eta[start_window : end_window + window_n]
+        plateau_mean = np.mean(plateau_eta)
+        plateau_std = np.std(plateau_eta, ddof=1)
+        return (plateau_mean, plateau_std, plateau_t)
 
 
 # Example usage
