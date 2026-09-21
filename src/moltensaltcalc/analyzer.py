@@ -833,8 +833,8 @@ class MoltenSaltAnalyzer:
 
     def viscosity_vs_tmax_find_plateau(
         self,
-        tmax_fs_list: list[float],
-        eta_Pa_s_list: list[float],
+        tmax_fs_list: list[float] | np.ndarray,
+        eta_Pa_s_list: list[float] | np.ndarray,
         min_window_size_fs: float = 1000,
         std_threshold_Pa_s: float = 100,
         slope_threshold: float = 5e-2,
