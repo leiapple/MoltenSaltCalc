@@ -50,7 +50,7 @@ def _build(params, device=None):  # pylint: disable=unused-argument
         lmpcmds=lmpcmds,
         atom_types=atom_types,
         lammps_header=[
-            "units metal",
+            "units real",
             "atom_style charge",
             "atom_modify map array sort 0 0",
         ],
