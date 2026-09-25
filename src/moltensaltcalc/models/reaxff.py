@@ -20,6 +20,11 @@ from moltensaltcalc.registry import register_model
             ),
             "default": None,
         },
+        "log_file": {
+            "type": "str",
+            "description": "Path to the log file for the LAMMPS simulation. Can be useful for debugging, but is not required, as results are written to the ase trajectory.",
+            "default": None,
+        },
     },
 )
 def _build(params, device=None):  # pylint: disable=unused-argument
@@ -31,6 +36,7 @@ def _build(params, device=None):  # pylint: disable=unused-argument
         None,
     )
     elements = params.get("elements", None)
+    log_file = params.get("log_file", None)
 
     atom_types = {element: i + 1 for i, element in enumerate(elements)}
 
@@ -49,4 +55,5 @@ def _build(params, device=None):  # pylint: disable=unused-argument
             "atom_modify map array sort 0 0",
         ],
         keep_alive=True,
+        log_file=log_file,
     )
