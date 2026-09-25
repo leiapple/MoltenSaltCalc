@@ -1,7 +1,5 @@
 """Implementation of the ReaxFF calculator."""
 
-import warnings
-
 from moltensaltcalc.registry import register_model
 
 
@@ -24,15 +22,9 @@ from moltensaltcalc.registry import register_model
         },
     },
 )
-def _build(params, device):
+def _build(params, device=None):  # pylint: disable=unused-argument
     """Import and build the ReaxFF calculator."""
     from ase.calculators.lammpslib import LAMMPSlib
-
-    if device is not None:
-        warnings.warn(
-            "ReaxFF does not support specifying a device. The device depends on your LAMMPS installations.",
-            stacklevel=2,
-        )
 
     ffield_reax_path = params.get(
         "ffield_reax_path",
