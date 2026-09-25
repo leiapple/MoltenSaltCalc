@@ -14,7 +14,7 @@ from moltensaltcalc.registry import register_model
         },
         "num_layers": {
             "type": "int",
-            "choices": [1, 2],
+            "choices": [1, 2, 3],
             "description": "Number of message-passing layers.",
             "default": 1,
         },
@@ -44,12 +44,14 @@ def _build(params, device):
         ("omat", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_base,  # type: ignore
         ("omat", "large", 1): GRACEModels.GRACE_1L_OMAT_large_base,  # type: ignore
         ("omat", "large", 2): GRACEModels.GRACE_2L_OMAT_large_base,  # type: ignore
+        ("omat", "large", 3): GRACEModels.GRACE_3L_OMAT_large,  # type: ignore
         ("oam", "small", 1): GRACEModels.GRACE_1L_OAM,  # type: ignore
         ("oam", "small", 2): GRACEModels.GRACE_2L_OAM,  # type: ignore
         ("oam", "medium", 1): GRACEModels.GRACE_1L_OMAT_medium_ft_AM,  # type: ignore
         ("oam", "medium", 2): GRACEModels.GRACE_2L_OMAT_medium_ft_AM,  # type: ignore
         ("oam", "large", 1): GRACEModels.GRACE_1L_OMAT_large_ft_AM,  # type: ignore
         ("oam", "large", 2): GRACEModels.GRACE_2L_OMAT_large_ft_AM,  # type: ignore
+        ("oam", "large", 3): GRACEModels.GRACE_3L_OMAT_large_ft_AM,  # type: ignore
     }
     try:
         model = mapping[(task, size, int(layers))]
