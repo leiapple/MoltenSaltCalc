@@ -8,9 +8,9 @@ from moltensaltcalc.registry import register_model
     metadata={
         "model_name": {
             "type": "str",
-            "choices": ["matris_10m_oam", "matris_10m_mp"],
+            "choices": ["matris_10m_omat", "matris_10m_oam", "matris_10m_mp"],
             "description": "The name of the model to use.",
-            "default": "matris_10m_oam",
+            "default": "matris_10m_omat",
         },
     },
 )
@@ -18,7 +18,7 @@ def _build(params, device):
     """Import and build the MatRIS MLIP."""
     from matris.applications.base import MatRISCalculator
 
-    model_name = params.get("model_name", "matris_10m_oam")
+    model_name = params.get("model_name", "matris_10m_omat")
 
     calc = MatRISCalculator(model=model_name, task="efs", device=device)
 
