@@ -18,7 +18,8 @@ def test_umlip(session, model):
     if "HF_TOKEN" in os.environ:
         session.env["HF_TOKEN"] = os.environ["HF_TOKEN"]
 
-    if model.lower() == "vasp" or model.lower() == "equflash":
+    # Those models cannot be tested on the runner
+    if model.lower() == "vasp" or model.lower() == "equflash" or model.lower() == "reaxff":
         return
 
     # Check the python version

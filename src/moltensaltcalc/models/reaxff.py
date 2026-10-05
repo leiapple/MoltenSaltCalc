@@ -1,0 +1,59 @@
+"""Implementation of the ReaxFF calculator."""
+
+from moltensaltcalc.registry import register_model
+
+
+@register_model(
+    "reaxff",
+    metadata={
+        "ffield_reax_path": {
+            "type": "str",
+            "description": (
+                "Path to a local ReaxFF force-field file, e.g. 'ffield.reax.082.CHOCsKNaClIFLi', which can be downloaded from https://github.com/by-student-2017/lammps_education_reaxff_win.git."
+            ),
+            "default": None,
+        },
+        "elements": {
+            "type": "list",
+            "description": (
+                "Chemical elements corresponding to the LAMMPS atom types. The order must match the pair_coeff command."
+            ),
+            "default": None,
+        },
+        "log_file": {
+            "type": "str",
+            "description": "Path to the log file for the LAMMPS simulation. Can be useful for debugging, but is not required, as results are written to the ase trajectory.",
+            "default": None,
+        },
+    },
+)
+def _build(params, device=None):  # pylint: disable=unused-argument
+    """Import and build the ReaxFF calculator."""
+    from ase.calculators.lammpslib import LAMMPSlib
+
+    ffield_reax_path = params.get(
+        "ffield_reax_path",
+        None,
+    )
+    elements = params.get("elements", None)
+    log_file = params.get("log_file", None)
+
+    atom_types = {element: i + 1 for i, element in enumerate(elements)}
+
+    lmpcmds = [
+        "pair_style reaxff NULL",
+        f"pair_coeff * * {ffield_reax_path} {' '.join(elements)}",
+        "fix qeq all qeq/reaxff 1 0.0 10.0 1.0e-6 reaxff",
+    ]
+
+    return LAMMPSlib(
+        lmpcmds=lmpcmds,
+        atom_types=atom_types,
+        lammps_header=[
+            "units real",
+            "atom_style charge",
+            "atom_modify map array sort 0 0",
+        ],
+        keep_alive=True,
+        log_file=log_file,
+    )

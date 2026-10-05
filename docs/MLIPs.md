@@ -255,7 +255,7 @@ Pre-trained universal models from the [MatRIS project](https://github.com/HPC-AI
 
 | Parameter | Type | Choices | Default | Description |
 |-|-|-|-|-|
-| `model_name` | `str` | `matris_10m_oam`, `matris_10m_mp` | `matris_10m_oam` | The name of the model to use which will be downloaded from figshare. |
+| `model_name` | `str` | `matris_10m_omat`, `matris_10m_oam`, `matris_10m_mp` | `matris_10m_omat` | The name of the model to use which will be downloaded from figshare. |
 
 ---
 

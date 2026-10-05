@@ -77,11 +77,11 @@ def test_init_string_input():
     assert len(ana.trajs_nvt) == 1  # type: ignore
 
 
-def test_get_eq_times():
+def test_get_eq_indices():
     """Test that the equilibrium times are correctly extracted."""
     ana = msc.MoltenSaltAnalyzer()
     times = np.array([0, 10, 20, 30, 40])
-    idx = ana._get_eq_times(0.5, times)
+    idx = ana._get_eq_indices(0.5, times)
     assert np.array_equal(idx, np.array([2, 3, 4]))
 
 
@@ -97,6 +97,19 @@ def test_trajectory_without_time_fs():
     ana.recompute_times(timestep_fs=5.0)
     assert np.isclose(ana.timestep_fs, 5.0)
     assert np.allclose(ana.timestep_fs, np.diff(ana.times_fs_npt))  # type: ignore
+
+
+def test_compute_temperature_vs_time(analyzer):
+    """Test that the computed temperature vs. time is correct."""
+    temperatures, times = analyzer.compute_temperature_vs_time(T=1100, eq_fraction=EQ_FRAC)
+    assert isinstance(temperatures, np.ndarray), "Temperatures is not a numpy array"
+    assert isinstance(times, np.ndarray), "Times is not a numpy array"
+    assert len(temperatures) == len(times), "Length of temperatures and times do not match"
+    temperatures_ref, times_ref = np.array([1075.03787606, 1087.58775654, 1021.26207237]), np.array([3, 4, 5])
+    assert np.allclose(temperatures, temperatures_ref, atol=1e-5), (
+        f"Temperatures is {temperatures} instead of {temperatures_ref}"
+    )
+    assert np.allclose(times, times_ref, atol=1e-5), f"Times is {times} instead of {times_ref}"
 
 
 def test_compute_density_vs_time(analyzer):
@@ -146,9 +159,19 @@ def test_compute_thermal_expansion(analyzer):
     )
 
 
-def test_compute_heat_capacity(analyzer):
-    """Test that the heat capacity is computed correctly."""
-    heat_capacity = analyzer.compute_heat_capacity(T=1200, eq_fraction=EQ_FRAC)
+def test_compute_heat_capacity_cp(analyzer):
+    """Test that the heat capacity at constant pressure is computed correctly."""
+    heat_capacity = analyzer.compute_heat_capacity_cp(T=1175, ids=analyzer.ids_npt, eq_fraction=EQ_FRAC)
+    assert isinstance(heat_capacity, float), "Heat capacity is not a float"
+    heat_capacity_ref = 1.45841
+    assert np.isclose(heat_capacity, heat_capacity_ref, atol=1e-5), (
+        f"Heat capacity is {heat_capacity:.5f} instead of {heat_capacity_ref:.5f}"
+    )
+
+
+def test_compute_heat_capacity_cv(analyzer):
+    """Test that the heat capacity at constant volume is computed correctly."""
+    heat_capacity = analyzer.compute_heat_capacity_cv(T=1200, eq_fraction=EQ_FRAC)
     assert isinstance(heat_capacity, float), "Heat capacity is not a float"
     heat_capacity_ref = 0.00023
     assert np.isclose(heat_capacity, heat_capacity_ref, atol=1e-5), (
@@ -192,10 +215,11 @@ def test_compute_rdf(analyzer):
     )
     assert isinstance(rdf_data, dict), "Radial distribution function results are not returned as a dictionary"
     assert pair in rdf_data, f"Radial distribution function results do not contain the key '{pair}'"
-    (distances, avg_rdf), distances_ref, avg_rdf_ref = (
+    (distances, avg_rdf, std_rdf), distances_ref, avg_rdf_ref, std_rdf_ref = (
         rdf_data[pair],
         [0.5, 1.5, 2.5, 3.5, 4.5],
         [0.0, 0.0, 0.01664065, 1.17638912, 1.66206463],
+        [0.0, 0.0, 0.0, 0.01611298, 0.01710353],
     )
     assert isinstance(distances, np.ndarray), "Distances are not a numpy array"
     assert isinstance(avg_rdf, np.ndarray), "Average RDF is not a numpy array"
@@ -207,6 +231,9 @@ def test_compute_rdf(analyzer):
     )
     assert np.allclose(distances, distances_ref, atol=1e-5), f"Distances are {distances} instead of {distances_ref}"
     assert np.allclose(avg_rdf, avg_rdf_ref, atol=1e-5), f"Average RDF is {avg_rdf} instead of {avg_rdf_ref}"
+    assert np.allclose(std_rdf, std_rdf_ref, atol=1e-5), (
+        f"Standard deviation of the RDF is {std_rdf} instead of {std_rdf_ref}"
+    )
 
 
 def test_rdf_auto_pairs_multiprocessing(analyzer):
@@ -230,20 +257,31 @@ def test_autocorr_fft_known_signal(analyzer):
 
 def test_compute_viscosity(analyzer):
     """Test that the shear viscosity is computed correctly."""
-    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=41)
+    tmax_fs = [40, 60, 80]
+    viscosity = analyzer.compute_viscosity(T=1200, tmax_fs=tmax_fs, eq_fraction=1.0)
     assert isinstance(viscosity, tuple), "Viscosity results are not returned as a tuple"
     assert len(viscosity) == 2, "Viscosity results do are not of expected length 2"
-    eta, eta_ref = viscosity[0], 0.00015
-    assert np.isclose(eta, eta_ref, atol=1e-5), f"Viscosity is {eta:.5f} instead of {eta_ref:.5f}"
+    eta, eta_ref = viscosity[0], [1.49408632e-04, 9.24734496e-05, -3.76017491e-05]
+    assert np.allclose(eta, eta_ref, atol=1e-5), f"Viscosity is {eta} instead of {eta_ref}"
     (autocorrelation, times), autocorrelation_ref, times_ref = (
         viscosity[1],
-        [6.78166120e-07, 4.15856007e-07, -5.36254178e-08],
-        [0.0, 20.0, 40.0],
+        [6.78166120e-07, 4.15856007e-07, -5.36254178e-08, -5.01309146e-07, -7.66504895e-07],
+        [0.0, 20.0, 40.0, 60.0, 80.0],
     )
     assert np.allclose(autocorrelation, autocorrelation_ref, atol=1e-5), (
         f"Autocorrelation function is {autocorrelation} instead of {autocorrelation_ref}"
     )
     assert np.allclose(times, times_ref, atol=1e-5), f"Autocorrelation times are {times} instead of {times_ref}"
+    res = analyzer.viscosity_vs_tmax_find_plateau(tmax_fs_list=tmax_fs, eta_Pa_s_list=eta, min_window_size_fs=40)
+    eta_mean, eta_mean_ref = res[0], 6.809344412561431e-05
+    eta_std, eta_std_ref = res[1], 9.585931955734695e-05
+    plateau_t, plateau_t_ref = res[2], [40.0, 60.0, 80.0]
+    assert len(plateau_t) == len(plateau_t_ref), (
+        f"Plateau times length is {len(plateau_t)} instead of {len(plateau_t_ref)}"
+    )
+    assert np.allclose(plateau_t, plateau_t_ref), f"Plateau times are {plateau_t} instead of {plateau_t_ref}"
+    assert np.isclose(eta_mean, eta_mean_ref), f"Plateau mean is {eta_mean} instead of {eta_mean_ref}"
+    assert np.isclose(eta_std, eta_std_ref), f"Plateau std is {eta_std} instead of {eta_std_ref}"
 
 
 # =========================================================
@@ -260,6 +298,7 @@ def test_init_missing_traj_file():
                 BASE / "test_analyzer_trajectories" / "nonexistent.traj",
             ],
             temperatures_npt=[1100, 1],
+            n_workers_load_traj=1,
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that exists was not loaded"  # type: ignore
     assert any("Trajectory file" in str(w.message) and "nonexistent.traj" in str(w.message) for w in ws)
@@ -274,6 +313,7 @@ def test_invalid_traj_file():
                 BASE / "test_analyzer_trajectories" / "invalid.traj",
             ],
             temperatures_npt=[1100, 1],
+            n_workers_load_traj=1,
         )
     assert len(analyzer.trajs_npt) == 1, "Trajectory file that is valid was not loaded"  # type: ignore
     assert any("Error loading trajectory file" in str(w.message) and "invalid.traj" in str(w.message) for w in ws)
@@ -332,6 +372,9 @@ def test_invalid_thm_expansion(analyzer, monkeypatch):
     with pytest.raises(ValueError) as e:
         analyzer.compute_thermal_expansion(eq_fraction=0.1)
     assert "No NPT trajectory files provided" in str(e.value)
+    with pytest.raises(ValueError) as e:
+        analyzer.compute_thermal_expansion(ids=["nonexistent_id"])
+    assert "The ids: ['nonexistent_id'] are not available in the initialized NPT trajectories." in str(e.value)
 
 
 def test_rdf_no_pairs(analyzer):
@@ -350,5 +393,5 @@ def test_viscosity_nonconstant_timestep():
         temperatures_nvt=[1200],
     )
     with pytest.raises(ValueError) as e:
-        ana.compute_viscosity(T=1200)
+        ana.compute_viscosity(T=1200, eq_fraction=1.0)
     assert "The timestep between the frames is not constant" in str(e.value)

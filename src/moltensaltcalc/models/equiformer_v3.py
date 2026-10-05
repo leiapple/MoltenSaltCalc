@@ -15,6 +15,7 @@ def clean_model(model_path: str):
     """Cleans the model dict by removing the "_orig_mod.module." from the keys if present and writes the cleaned model to the huggingface cache."""
     import torch  # Somehow doesn't get it from the _build function
 
+    cleaned_model_path = model_path.replace(".pt", "_cleaned.pt")
     checkpoint = torch.load(model_path, map_location="cpu")
     old_state_dict = checkpoint["state_dict"]
     new_state_dict = {}
@@ -28,7 +29,8 @@ def clean_model(model_path: str):
             new_key = new_key.replace("_orig_mod.", "")
         new_state_dict[new_key] = value
     checkpoint["state_dict"] = new_state_dict
-    torch.save(checkpoint, model_path)  # Overwrite the model in the huggingface cache
+    torch.save(checkpoint, cleaned_model_path)
+    return cleaned_model_path
 
 
 @register_model(
@@ -67,7 +69,7 @@ def _build(params, device):
     if model_path in AVAILABLE_MODELS:
         model_path = hf_hub_download(repo_id=MODEL_HF_ID, filename=f"checkpoint/{model_path}.pt", revision=rev)
     if not params.get("dont_clean_model", False):
-        clean_model(model_path)
+        model_path = clean_model(model_path)
 
     return OCPCalculator(
         checkpoint_path=model_path,
