@@ -6,74 +6,19 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
-from ase import Atoms, units
+from ase import units
 from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
-from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
-from ase.io.ulm import InvalidULMFileError
 from scipy.integrate import cumulative_trapezoid
 from tqdm import tqdm
 
-
-def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
-    """Worker function for parallel RDF computation."""
-    positions, numbers, cell, pbc, rmax, nbins, elements_nr = args
-    atoms = Atoms(
-        positions=positions,
-        numbers=numbers,
-        cell=cell,
-        pbc=pbc,
-    )
-    rdf, distances = get_rdf(atoms, rmax, nbins, elements=elements_nr)
-    return rdf, distances
-
-
-def _trajectory_worker(args):
-    """Load one trajectory and return it with its computed times and metadata."""
-    traj_file, temperature, run_id, calculator, timestep_fs, no_timestep = args
-    if not Path(traj_file).exists():
-        warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-        return None
-
-    try:
-        traj_obj = Trajectory(traj_file)
-        traj = []
-        for i, atoms in enumerate(traj_obj):  # type: ignore
-            try:
-                traj.append(atoms)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                warnings.warn(
-                    f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
-                    stacklevel=2,
-                )
-    except InvalidULMFileError as e:
-        warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-        return None
-
-    if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:
-        times = np.array([atoms.info["time_fs"] for atoms in traj])
-    else:
-        if no_timestep:
-            warnings.warn(
-                f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of "
-                f"{timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                stacklevel=2,
-            )
-        times = np.arange(len(traj)) * timestep_fs
-
-    if calculator is not None:
-        try:
-            for atoms in traj:
-                atoms.calc = calculator
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            warnings.warn(
-                f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
-                stacklevel=2,
-            )
-            return None
-
-    return traj, times, temperature, run_id
+from moltensaltcalc.analyzer_helpers import (
+    _get_unwrapped_positions,
+    _msd_element_worker,
+    _rdf_worker,
+    _trajectory_worker,
+)
 
 
 class MoltenSaltAnalyzer:
@@ -581,31 +526,75 @@ class MoltenSaltAnalyzer:
         C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> dict:
-        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
+    def compute_diffusion_coefficient(
+        self,
+        T: int | float,
+        traj_id: str | None = None,
+        eq_fraction: float = 0.1,
+        max_lag_fs: int | None = None,
+        fit_min_fs: int | None = 1000,
+        fit_max_fs: int | None = None,
+        n_workers_max: int | None = None,
+        return_msd_lag_times: bool = False,
+    ) -> dict | tuple[dict, dict]:
+        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement (MSD). Parallelized by element species. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
 
         Args:
-            T (int, float): Temperature in K.  The trajectory with the matching temperature is selected.
-            traj_id (str, optional): Identifier for the trajectory, overrides T to select the trajectory. Defaults to None.
+            T (int, float): Temperature in K.
+            traj_id (str, optional): Identifier for the trajectory.
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            max_lag_fs (int, optional): Maximum lag time in femtoseconds for the MSD calculation. Defaults to None, which means the whole trajectory (slice).
+            fit_min_fs (int, optional): Minimum time in femtoseconds for the MSD linear fit. Defaults to 1000.
+            fit_max_fs (int, optional): Maximum time in femtoseconds for the MSD linear fit. Defaults to None, which means it will be set to the same value as max_lag_fs (or the total trajectory time).
+            n_workers_max (int, optional): Maximum number of worker processes to use. Defaults to the number of element species.
+            return_msd_lag_times (bool, optional): Whether to return the MSD and lag times for each element as dictionaries. Defaults to False.
 
         Returns:
-            dict: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}
+            dict | tuple[dict, dict]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}.
+            If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: {"lag_times": lag_times, "msd": msd}}.
+
+        Raises:
+            ValueError: If eq_fraction is not between 0 and 1.
+            ValueError: If the trajectory frames are not uniformly sampled, as this is required for the MSD calculation.
         """
+        if eq_fraction < 0 or eq_fraction > 1:
+            raise ValueError(f"eq_fraction must be between 0 and 1, not {eq_fraction}.")
         traj, times = self._select_trajectory("nvt", T, traj_id)
+        # Get only the equilibrated trajectory part
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        traj = [traj[i] for i in eq_indices]
+        times = times[eq_indices]
+        # Reset the time origin
+        times -= times[0]
+        if max_lag_fs is None:
+            max_lag_fs = times[-1]
+        if fit_max_fs is None:
+            fit_max_fs = max_lag_fs
+        # The MSD calculation requires uniform sampling
+        dt = np.diff(times)
+        if not np.allclose(dt, np.median(dt), rtol=1e-4, atol=1e-8):
+            raise ValueError("Uniformly spaced trajectory frames are required.")
         symbols = np.array(traj[0].get_chemical_symbols())
         unique_elements = np.unique(symbols)
-        # Get the positions relative to the center of mass
-        positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
-        r0 = positions[0]  # Å
-        # Get the diffusion coefficients for each atom species
-        D = {}
+        # Get the unwrapped positions
+        positions = _get_unwrapped_positions(traj)  # Å
+        # Prepare the workload arguments for the process pool
+        tasks = []
         for symbol in unique_elements:
             mask = symbols == symbol
-            # Compute the mean square displacements without variation of time origins
-            msd = np.mean(np.sum((positions[:, mask, :] - r0[mask, :]) ** 2, axis=2), axis=1)  # Å²
-            slope, _ = np.polyfit(times, msd, 1)
-            D[symbol] = slope / 6.0  # Å²/fs
+            pos_species = positions[:, mask, :]  # (len(traj), n_atoms_species, 3)
+            tasks.append((symbol, pos_species, times, max_lag_fs, fit_min_fs, fit_max_fs))
+        # Run the MSD tasks for different species concurrently
+        D = {}
+        with Pool(processes=n_workers_max) as pool:
+            results = pool.map(_msd_element_worker, tasks)
+        msd_lag_times = {}
+        for symbol, coeff, lag_times, msd in results:
+            D[symbol] = coeff
+            msd_lag_times[symbol] = {"lag_times": lag_times, "msd": msd}
 
+        if return_msd_lag_times:
+            return D, msd_lag_times
         return D
 
     def fit_arrhenius(self, temperatures: list[int] | list[float], diffusion_coeffs: list[float]) -> dict:
