@@ -826,7 +826,7 @@ class MoltenSaltAnalyzer:
         eta_Pa_s_list: list[float] | np.ndarray,
         min_window_size_fs: float = 1000,
         std_threshold_Pa_s: float = 100,
-        slope_threshold: float = 2e-7,
+        slope_threshold: float = 1e-7,
         min_consecutive_windows: int = 1,
     ) -> tuple:
         """Given different values for the viscosity (eta) from different maximal integration times (tmax_fs), finds the longest plateau of a minimum size (min_window_size_fs) and computes the mean and std on that plateau.
@@ -836,7 +836,7 @@ class MoltenSaltAnalyzer:
             eta_Pa_s_list (list[float]): List of viscosity values corresponding to the tmax_fs_list in Pa s.
             min_window_size_fs (float): Minimum size of the window for local statistics in femtoseconds. Defaults to 1000.
             std_threshold_Pa_s (float): Threshold for the standard deviation of the viscosity within a window in Pa s to consider it to a plateau. Defaults to 100.
-            slope_threshold (float): Maximum allowed slope (absolute value) for a plateau. Defaults to 2e-7.
+            slope_threshold (float): Maximum allowed slope (absolute value) for a plateau. Defaults to 1e-7.
             min_consecutive_windows (int, optional): Minimum number of consecutive windows that must satisfy the std and slope criteria to consider a plateau. Defaults to 1.
 
         Raises:
