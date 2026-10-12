@@ -11,6 +11,21 @@ from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
 from ase.io.ulm import InvalidULMFileError
 
+# Required for the MSD calculation in parallel workers
+_MSD_POSITIONS = None
+
+
+def _init_msd_worker(pos_species: np.ndarray) -> None:
+    """Initialize worker-local positions for parallel MSD calculation."""
+    global _MSD_POSITIONS  # pylint: disable=global-statement
+    _MSD_POSITIONS = pos_species
+
+
+def _msd_lag_worker(lag: int) -> tuple[int, float]:
+    """Calculate the MSD for a single lag interval."""
+    sq_disp = (_MSD_POSITIONS[lag:, :, :] - _MSD_POSITIONS[:-lag, :, :]) ** 2
+    return lag, float(np.mean(np.sum(sq_disp, axis=2)))
+
 
 def _trajectory_worker(args):
     """Load one trajectory and return it with its computed times and metadata."""
@@ -70,28 +85,6 @@ def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
     )
     rdf, distances = get_rdf(atoms, rmax, nbins, elements=elements_nr)
     return rdf, distances
-
-
-def _msd_element_worker(args) -> tuple[str, float, np.ndarray, np.ndarray]:
-    """Worker function for parallel MSD computation (for diffusion coeffs)."""
-    symbol, pos_species, times, max_lag_fs, fit_min_fs, fit_max_fs = args
-    lag_times = times[times <= max_lag_fs]
-    msd = np.zeros_like(lag_times)
-
-    for i in range(1, len(lag_times)):
-        sq_disp = (pos_species[i:, :, :] - pos_species[:-i, :, :]) ** 2
-        msd[i] = np.mean(np.sum(sq_disp, axis=2))
-
-    # Linear fit on the desired diffusive interval (avoid ballistic regime and long-time noisy data)
-    fit_mask = (lag_times >= fit_min_fs) & (lag_times <= fit_max_fs)
-
-    slope, _ = np.polyfit(
-        lag_times[fit_mask],
-        msd[fit_mask],
-        1,
-    )
-
-    return symbol, slope / 6.0, lag_times, msd
 
 
 def _get_unwrapped_positions(traj) -> np.ndarray:

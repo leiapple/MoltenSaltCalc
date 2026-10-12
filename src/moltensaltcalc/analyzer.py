@@ -15,7 +15,8 @@ from tqdm import tqdm
 
 from moltensaltcalc.analyzer_helpers import (
     _get_unwrapped_positions,
-    _msd_element_worker,
+    _init_msd_worker,
+    _msd_lag_worker,
     _rdf_worker,
     _trajectory_worker,
 )
@@ -534,9 +535,9 @@ class MoltenSaltAnalyzer:
         max_lag_fs: int | None = None,
         fit_min_fs: int | None = 1000,
         fit_max_fs: int | None = None,
-        n_workers_max: int | None = None,
+        n_workers: int = 1,
         return_msd_lag_times: bool = False,
-    ) -> dict | tuple[dict, dict]:
+    ) -> dict | tuple[dict, dict, np.ndarray]:
         """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement (MSD). Parallelized by element species. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
 
         Args:
@@ -546,16 +547,17 @@ class MoltenSaltAnalyzer:
             max_lag_fs (int, optional): Maximum lag time in femtoseconds for the MSD calculation. Defaults to None, which means the whole trajectory (slice).
             fit_min_fs (int, optional): Minimum time in femtoseconds for the MSD linear fit. Defaults to 1000.
             fit_max_fs (int, optional): Maximum time in femtoseconds for the MSD linear fit. Defaults to None, which means it will be set to the same value as max_lag_fs (or the total trajectory time).
-            n_workers_max (int, optional): Maximum number of worker processes to use. Defaults to the number of element species.
+            n_workers (int, optional): Maximum number of worker processes to use for the MSD calculation. Defaults 1.
             return_msd_lag_times (bool, optional): Whether to return the MSD and lag times for each element as dictionaries. Defaults to False.
 
         Returns:
-            dict | tuple[dict, dict]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}.
-            If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: {"lag_times": lag_times, "msd": msd}}.
+            dict | tuple[dict, dict, np.ndarray]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}.
+            If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: msd}. The lag times are returned as a separate numpy array.
 
         Raises:
             ValueError: If eq_fraction is not between 0 and 1.
             ValueError: If the trajectory frames are not uniformly sampled, as this is required for the MSD calculation.
+            ValueError: If there are not enough lag times for the MSD calculation (need at least 2).
         """
         if eq_fraction < 0 or eq_fraction > 1:
             raise ValueError(f"eq_fraction must be between 0 and 1, not {eq_fraction}.")
@@ -578,23 +580,37 @@ class MoltenSaltAnalyzer:
         unique_elements = np.unique(symbols)
         # Get the unwrapped positions
         positions = _get_unwrapped_positions(traj)  # Å
-        # Prepare the workload arguments for the process pool
-        tasks = []
+        # Compute the diffusion coefficient for each element from the MSD
+        D = {}
+        msd_dict = {}
+        lag_times = times[times <= max_lag_fs]
+        if len(lag_times) < 2:
+            raise ValueError(
+                "Not enough lag times for MSD calculation, need at least 2 (increase max_lag_fs and/or eq_fraction)."
+            )
         for symbol in unique_elements:
             mask = symbols == symbol
             pos_species = positions[:, mask, :]  # (len(traj), n_atoms_species, 3)
-            tasks.append((symbol, pos_species, times, max_lag_fs, fit_min_fs, fit_max_fs))
-        # Run the MSD tasks for different species concurrently
-        D = {}
-        with Pool(processes=n_workers_max) as pool:
-            results = pool.map(_msd_element_worker, tasks)
-        msd_lag_times = {}
-        for symbol, coeff, lag_times, msd in results:
-            D[symbol] = coeff
-            msd_lag_times[symbol] = {"lag_times": lag_times, "msd": msd}
+            msd = np.zeros_like(lag_times)
+            with Pool(
+                processes=min(n_workers, len(lag_times) - 1),
+                initializer=_init_msd_worker,
+                initargs=(pos_species,),
+            ) as pool:
+                for lag, value in pool.map(_msd_lag_worker, range(1, len(lag_times))):
+                    msd[lag] = value
+            # Linear fit on the desired diffusive interval (avoid ballistic regime and long-time noisy data)
+            fit_mask = (lag_times >= fit_min_fs) & (lag_times <= fit_max_fs)
+            slope, _ = np.polyfit(
+                lag_times[fit_mask],
+                msd[fit_mask],
+                1,
+            )
+            D[symbol] = slope / 6.0
+            msd_dict[symbol] = msd
 
         if return_msd_lag_times:
-            return D, msd_lag_times
+            return D, msd_dict, lag_times
         return D
 
     def fit_arrhenius(self, temperatures: list[int] | list[float], diffusion_coeffs: list[float]) -> dict:
@@ -915,6 +931,7 @@ class MoltenSaltAnalyzer:
         return (plateau_mean, plateau_std, plateau_t)
 
 
+# pylint: disable=too-many-lines
 # Example usage
 if __name__ == "__main__":  # pragma: no cover
     print(
