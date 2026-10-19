@@ -551,8 +551,7 @@ class MoltenSaltAnalyzer:
             return_msd_lag_times (bool, optional): Whether to return the MSD and lag times for each element as dictionaries. Defaults to False.
 
         Returns:
-            dict | tuple[dict, dict, np.ndarray]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}.
-            If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: msd}. The lag times are returned as a separate numpy array.
+            dict | tuple[dict, dict, np.ndarray]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}. If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: msd}. The lag times are returned as a separate numpy array.
 
         Raises:
             ValueError: If eq_fraction is not between 0 and 1.
