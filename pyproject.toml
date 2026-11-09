@@ -67,6 +67,7 @@ alphanet = ["msc-alphanet>=0.1.3","torch==2.9.1","torch-dftd","requests"]
 eqnorm = ["eqnorm>=0.1.1","torch==2.9.1","torch-dftd"]
 hienet = ["hienet>=1.0.2","torch==2.9.1","torch-dftd"]
 equiformer_v2 = ["equiformer-v2","torch","torch-dftd","huggingface_hub"]
+fit_uf3 = ["uf3>=0.4.0"]
 
 # DFTD4 variants
 dftd4 = ["dftd4"]
