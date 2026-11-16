@@ -1,7 +1,6 @@
 """MoltenSaltAnalyzer class for analyzing molecular dynamics simulations."""
 
 import os
-import warnings
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -424,6 +423,8 @@ class MoltenSaltAnalyzer:
     def _mean_enthalpy(self, traj, times: np.ndarray, T: float, eq_fraction: float, pressure: float) -> float:
         """Compute the mean enthalpy of a trajectory.
 
+        The kinetic energy is not taken from the frames but is its canonical expectation value, 3/2 (N - 1) kB T (the total momentum is conserved), so that the enthalpy does not depend on whether a trajectory provides velocities (VASP trajectories often do not) and does not carry the sampling noise of the instantaneous kinetic energy.
+
         Args:
             traj (Trajectory): The trajectory to analyze.
             times (np.ndarray): Array of time points corresponding to the trajectory frames.
@@ -436,11 +437,8 @@ class MoltenSaltAnalyzer:
         """
         eq_indices = self._get_eq_indices(eq_fraction, times)
         traj = [traj[i] for i in eq_indices]
-        H = np.array([atoms.get_total_energy() + pressure * atoms.get_volume() for atoms in traj])  # eV
-        H_mean = np.mean(H)  # eV
-        if traj[0].get_kinetic_energy() == 0:
-            H_mean += 1.5 * len(traj[0]) * T * units.kB  # eV
-        return H_mean
+        H = np.array([atoms.get_potential_energy() + pressure * atoms.get_volume() for atoms in traj])  # eV
+        return float(np.mean(H) + 1.5 * (len(traj[0]) - 1) * T * units.kB)  # eV
 
     def compute_heat_capacity_cp(
         self,
@@ -488,13 +486,6 @@ class MoltenSaltAnalyzer:
 
         if T1 == T2:
             raise ValueError("The two selected NPT trajectories must have different temperatures.")
-
-        if any(traj[0].get_kinetic_energy() == 0 for traj in [traj1, traj2]):
-            warnings.warn(
-                "Kinetic energy of the first frame is zero, which may indicate an issue "
-                "with the trajectory. Proceeding with 3N/2*kB*T added to the enthalpy.",
-                stacklevel=2,
-            )
 
         pressure = p_ext_bar * units.bar  # Pa
         H1 = self._mean_enthalpy(traj1, times1, T1, eq_fraction, pressure)  # eV
