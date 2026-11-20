@@ -37,6 +37,19 @@ from moltensaltcalc.model_errors import (
 from moltensaltcalc.registry import MODEL_METADATA, MODEL_REGISTRY
 
 
+class _FixCom(FixCom):  # pylint: disable=too-few-public-methods
+    """FixCom that does not trigger a second model evaluation per MD step. ASE's integrators (e.g. Nose-Hoover chain) reset the positions before every force call. FixCom then shifts them by a center-of-mass correction that is zero up to rounding, but the rounding makes the calculator treat the atoms as changed and re-evaluate the model. Here the shift is skipped if it is below ``tol`` (in Angstrom), so that unchanged positions stay bitwise identical and the cached forces are reused."""
+
+    tol = 1e-10
+
+    def adjust_positions(self, atoms, new):
+        """Shift the positions to keep the center of mass fixed, unless the shift is below ``tol``."""
+        masses = atoms.get_masses()[self.index]
+        diff = atoms.get_center_of_mass(indices=self.index) - masses @ new[self.index] / masses.sum()
+        if np.abs(diff).max() > self.tol:
+            new += diff
+
+
 class MoltenSaltSimulator:
     """Class for building molten salt systems and running molecular dynamics simulations supported by energy estimates from uMLIPs."""
 
@@ -358,7 +371,7 @@ class MoltenSaltSimulator:
             raise ValueError(f"Unsupported lattice type: {lattice}")
 
         Stationary(atoms)
-        atoms.set_constraint(FixCom())
+        atoms.set_constraint(_FixCom())
         atoms.calc = self.calc
 
         return atoms
@@ -548,7 +561,7 @@ class MoltenSaltSimulator:
         if not np.isclose(atoms.get_temperature(), T, rtol=0.1):
             MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
-        atoms.set_constraint(FixCom())
+        atoms.set_constraint(_FixCom())
 
         # Run the NPT dynamics simulation
         constraints = atoms.constraints
@@ -717,7 +730,7 @@ class MoltenSaltSimulator:
         if not np.isclose(atoms.get_temperature(), T, rtol=0.1):
             MaxwellBoltzmannDistribution(atoms, temperature_K=T, force_temp=True)
         Stationary(atoms)
-        atoms.set_constraint(FixCom())
+        atoms.set_constraint(_FixCom())
 
         # Setup the Nose-Hoover chain NVT dynamics simulation
         dyn = self._select_nvt_dynamics(nvt_dyn, atoms, T, timestep_fs, tdamp_fs, print_interval, logfile)
