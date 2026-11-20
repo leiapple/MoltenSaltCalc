@@ -1,13 +1,21 @@
-"""Tests for the MoltenSaltAnalyzer class."""
+"""Tests for the MoltenSaltAnalyzer class and the center-of-mass constraint of the simulator."""
 
 # pylint: disable=redefined-outer-name
 # pylint: disable=protected-access
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
+from ase import units
+from ase.build import bulk
+from ase.calculators.emt import EMT
+from ase.constraints import FixCom
+from ase.md.nose_hoover_chain import NoseHooverChainNVT
+from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 
 import moltensaltcalc as msc
+from moltensaltcalc.simulator import _FixCom
 
 BASE = Path(__file__).parent
 EQ_FRAC = 0.6
@@ -37,6 +45,30 @@ def analyzer():
         ids_npt=["npt_NaCl_1100K", "npt_NaCl_1150K", "npt_NaCl_1200K"],
         ids_nvt=["nvt_NaCl_1100K", "nvt_NaCl_1150K", "nvt_NaCl_1200K"],
     )
+
+
+def run(constraint, steps=30):
+    """Run a short Nose-Hoover chain NVT simulation of rattled bulk Cu.
+
+    Args:
+        constraint (ase.constraints.FixConstraint): Constraint applied to the atoms.
+        steps (int, optional): Number of MD steps. Defaults to 30.
+
+    Returns:
+        tuple[ase.Atoms, int]: Final atoms and the number of model evaluations
+            performed during the run.
+    """
+    atoms = bulk("Cu", cubic=True).repeat(3)
+    atoms.rattle(0.05, seed=1)
+    atoms.calc = EMT()
+    np.random.seed(3)
+    MaxwellBoltzmannDistribution(atoms, temperature_K=300)
+    Stationary(atoms)
+    atoms.set_constraint(constraint)
+    dyn = NoseHooverChainNVT(atoms, timestep=1 * units.fs, temperature_K=300, tdamp=100 * units.fs)
+    with patch.object(EMT, "calculate", autospec=True, side_effect=EMT.calculate) as spy:
+        dyn.run(steps)
+    return atoms, spy.call_count
 
 
 # =========================================================
@@ -282,6 +314,26 @@ def test_compute_viscosity(analyzer):
     assert np.allclose(plateau_t, plateau_t_ref), f"Plateau times are {plateau_t} instead of {plateau_t_ref}"
     assert np.isclose(eta_mean, eta_mean_ref), f"Plateau mean is {eta_mean} instead of {eta_mean_ref}"
     assert np.isclose(eta_std, eta_std_ref), f"Plateau std is {eta_std} instead of {eta_std_ref}"
+
+
+def test_one_force_evaluation_per_step():
+    """_FixCom allows at most one model evaluation per step.
+
+    The 30 steps need 31 evaluations (initial plus one per step); one extra is tolerated.
+    """
+    _, n_calls = run(_FixCom())
+    assert n_calls <= 31 + 1
+
+
+def test_same_trajectory_as_fixcom():
+    """_FixCom reproduces the trajectory obtained with ASE's FixCom.
+
+    Final positions and momenta must agree to within 1e-8.
+    """
+    old, _ = run(FixCom())
+    new, _ = run(_FixCom())
+    assert np.abs(old.get_positions() - new.get_positions()).max() < 1e-8
+    assert np.abs(old.get_momenta() - new.get_momenta()).max() < 1e-8
 
 
 # =========================================================

@@ -756,18 +756,22 @@ class MoltenSaltAnalyzer:
         eq_fraction: float = 0.1,
         traj_id: str | None = None,
         tmax_fs: list[int] | np.ndarray | int = 20000,
+        sampling_interval_fs: float | None = None,
     ) -> tuple[np.ndarray | float, tuple[np.ndarray, np.ndarray]]:
-        """Compute shear viscosity using the Green-Kubo relation. The timestep between frames has to be constant.
+        """Compute shear viscosity using the Green-Kubo relation. The timestep between frames has to be constant. The ACF integral uses the trapezoidal rule on the frame grid, which overestimates it for coarse frame spacings. `sampling_interval_fs` evaluates the ACF only at multiples of this interval to make trajectories with different spacings comparable.
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
             traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
             eq_fraction (float, optional): Fraction of the trajectory to consider as equilibrated. Defaults to 0.1.
             tmax_fs (int, optional): Maximum correlation time in femtoseconds. Defaults to 20000.
+            sampling_interval_fs (float, optional): Spacing of the grid on which the ACF is integrated, a multiple of the frame
+                spacing. Defaults to None, i.e. the frame spacing.
 
         Raises:
             ValueError: If the timestep between the frames is not constant.
             ValueError: If any of the tmax_fs values are non-positive.
+            ValueError: If sampling_interval_fs is not a multiple of the frame spacing.
 
         Returns:
             Tuple[float, Tuple[np.ndarray, np.ndarray]]: Viscosity in Pa s and the autocorrelation function and times:
@@ -811,6 +815,13 @@ class MoltenSaltAnalyzer:
             axis=0,
         )  # eV²/Å⁶
         ac_times = np.arange(ac_mean.size) * dt  # fs
+        if sampling_interval_fs is not None:
+            stride = int(round(sampling_interval_fs / dt))
+            if stride < 1 or not np.isclose(stride * dt, sampling_interval_fs):
+                raise ValueError(
+                    f"sampling_interval_fs={sampling_interval_fs} is not a multiple of the frame spacing {dt} fs."
+                )
+            ac_mean, ac_times = ac_mean[::stride], ac_times[::stride]
 
         # Get the viscosity coefficient by integrating the autocorrelation function
         cumulative_integral = np.concatenate([[0.0], cumulative_trapezoid(ac_mean, ac_times)])  # eV²/Å⁶ fs
