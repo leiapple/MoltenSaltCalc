@@ -1,79 +1,24 @@
 """MoltenSaltAnalyzer class for analyzing molecular dynamics simulations."""
 
 import os
-import warnings
 from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
-from ase import Atoms, units
+from ase import units
 from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers, chemical_symbols
-from ase.geometry.rdf import get_rdf
 from ase.io import Trajectory
-from ase.io.ulm import InvalidULMFileError
 from scipy.integrate import cumulative_trapezoid
 from tqdm import tqdm
 
-
-def _rdf_worker(args) -> tuple[np.ndarray, np.ndarray]:
-    """Worker function for parallel RDF computation."""
-    positions, numbers, cell, pbc, rmax, nbins, elements_nr = args
-    atoms = Atoms(
-        positions=positions,
-        numbers=numbers,
-        cell=cell,
-        pbc=pbc,
-    )
-    rdf, distances = get_rdf(atoms, rmax, nbins, elements=elements_nr)
-    return rdf, distances
-
-
-def _trajectory_worker(args):
-    """Load one trajectory and return it with its computed times and metadata."""
-    traj_file, temperature, run_id, calculator, timestep_fs, no_timestep = args
-    if not Path(traj_file).exists():
-        warnings.warn(f"Trajectory file {traj_file} not found. Skipping.", stacklevel=2)
-        return None
-
-    try:
-        traj_obj = Trajectory(traj_file)
-        traj = []
-        for i, atoms in enumerate(traj_obj):  # type: ignore
-            try:
-                traj.append(atoms)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                warnings.warn(
-                    f"Skipping frame {i} in {traj_file}: {type(e).__name__}: {e}",
-                    stacklevel=2,
-                )
-    except InvalidULMFileError as e:
-        warnings.warn(f"Error loading trajectory file {traj_file}: {e}. Skipping.", stacklevel=2)
-        return None
-
-    if all("time_fs" in getattr(atoms, "info", {}) for atoms in traj) and no_timestep:
-        times = np.array([atoms.info["time_fs"] for atoms in traj])
-    else:
-        if no_timestep:
-            warnings.warn(
-                f"WARNING: No time_fs found in {os.path.basename(traj_file)}, assuming a constant timestep of "
-                f"{timestep_fs} fs. Modify with analyzer.recompute_times(timestep_fs).",
-                stacklevel=2,
-            )
-        times = np.arange(len(traj)) * timestep_fs
-
-    if calculator is not None:
-        try:
-            for atoms in traj:
-                atoms.calc = calculator
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            warnings.warn(
-                f"Failed while attaching calculator to {traj_file}: {type(e).__name__}: {e}. Skipping.",
-                stacklevel=2,
-            )
-            return None
-
-    return traj, times, temperature, run_id
+from moltensaltcalc.analyzer_helpers import (
+    _get_unwrapped_positions,
+    _init_msd_worker,
+    _msd_lag_worker,
+    _rdf_worker,
+    _trajectory_worker,
+)
 
 
 class MoltenSaltAnalyzer:
@@ -478,6 +423,8 @@ class MoltenSaltAnalyzer:
     def _mean_enthalpy(self, traj, times: np.ndarray, T: float, eq_fraction: float, pressure: float) -> float:
         """Compute the mean enthalpy of a trajectory.
 
+        The kinetic energy is not taken from the frames but is its canonical expectation value, 3/2 (N - 1) kB T (the total momentum is conserved), so that the enthalpy does not depend on whether a trajectory provides velocities (VASP trajectories often do not) and does not carry the sampling noise of the instantaneous kinetic energy.
+
         Args:
             traj (Trajectory): The trajectory to analyze.
             times (np.ndarray): Array of time points corresponding to the trajectory frames.
@@ -490,11 +437,8 @@ class MoltenSaltAnalyzer:
         """
         eq_indices = self._get_eq_indices(eq_fraction, times)
         traj = [traj[i] for i in eq_indices]
-        H = np.array([atoms.get_total_energy() + pressure * atoms.get_volume() for atoms in traj])  # eV
-        H_mean = np.mean(H)  # eV
-        if traj[0].get_kinetic_energy() == 0:
-            H_mean += 1.5 * len(traj[0]) * T * units.kB  # eV
-        return H_mean
+        H = np.array([atoms.get_potential_energy() + pressure * atoms.get_volume() for atoms in traj])  # eV
+        return float(np.mean(H) + 1.5 * (len(traj[0]) - 1) * T * units.kB)  # eV
 
     def compute_heat_capacity_cp(
         self,
@@ -543,13 +487,6 @@ class MoltenSaltAnalyzer:
         if T1 == T2:
             raise ValueError("The two selected NPT trajectories must have different temperatures.")
 
-        if any(traj[0].get_kinetic_energy() == 0 for traj in [traj1, traj2]):
-            warnings.warn(
-                "Kinetic energy of the first frame is zero, which may indicate an issue "
-                "with the trajectory. Proceeding with 3N/2*kB*T added to the enthalpy.",
-                stacklevel=2,
-            )
-
         pressure = p_ext_bar * units.bar  # Pa
         H1 = self._mean_enthalpy(traj1, times1, T1, eq_fraction, pressure)  # eV
         H2 = self._mean_enthalpy(traj2, times2, T2, eq_fraction, pressure)  # eV
@@ -581,31 +518,89 @@ class MoltenSaltAnalyzer:
         C = var_U / (units.kB / units.C * T**2 * m_tot)  # J/g/K
         return C
 
-    def compute_diffusion_coefficient(self, T: int | float, traj_id: str | None = None) -> dict:
-        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
+    def compute_diffusion_coefficient(
+        self,
+        T: int | float,
+        traj_id: str | None = None,
+        eq_fraction: float = 0.1,
+        max_lag_fs: int | None = None,
+        fit_min_fs: int | None = 1000,
+        fit_max_fs: int | None = None,
+        n_workers: int = 1,
+        return_msd_lag_times: bool = False,
+    ) -> dict | tuple[dict, dict, np.ndarray]:
+        """Compute diffusion coefficients of each atom species present in the trajectory from the mean squared displacement (MSD). Parallelized by element species. If both NPT and NVT trajectories are loaded, the diffusion coefficient is computed from the NVT trajectory, unless selected otherwise with traj_id.
 
         Args:
-            T (int, float): Temperature in K.  The trajectory with the matching temperature is selected.
-            traj_id (str, optional): Identifier for the trajectory, overrides T to select the trajectory. Defaults to None.
+            T (int, float): Temperature in K.
+            traj_id (str, optional): Identifier for the trajectory.
+            eq_fraction (float, optional): Final fraction of the simulation time to be considered as equilibrium. Defaults to 0.1.
+            max_lag_fs (int, optional): Maximum lag time in femtoseconds for the MSD calculation. Defaults to None, which means the whole trajectory (slice).
+            fit_min_fs (int, optional): Minimum time in femtoseconds for the MSD linear fit. Defaults to 1000.
+            fit_max_fs (int, optional): Maximum time in femtoseconds for the MSD linear fit. Defaults to None, which means it will be set to the same value as max_lag_fs (or the total trajectory time).
+            n_workers (int, optional): Maximum number of worker processes to use for the MSD calculation. Defaults 1.
+            return_msd_lag_times (bool, optional): Whether to return the MSD and lag times for each element as dictionaries. Defaults to False.
 
         Returns:
-            dict: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}
+            dict | tuple[dict, dict, np.ndarray]: Diffusion coefficients in Å²/fs for each element, in the form {element: diffusion coefficient}. If return_msd_lag_times is True, also includes the MSD and lag times for each element in a second dictionary, in the form {element: msd}. The lag times are returned as a separate numpy array.
+
+        Raises:
+            ValueError: If eq_fraction is not between 0 and 1.
+            ValueError: If the trajectory frames are not uniformly sampled, as this is required for the MSD calculation.
+            ValueError: If there are not enough lag times for the MSD calculation (need at least 2).
         """
+        if eq_fraction < 0 or eq_fraction > 1:
+            raise ValueError(f"eq_fraction must be between 0 and 1, not {eq_fraction}.")
         traj, times = self._select_trajectory("nvt", T, traj_id)
+        # Get only the equilibrated trajectory part
+        eq_indices = self._get_eq_indices(eq_fraction, times)
+        traj = [traj[i] for i in eq_indices]
+        times = times[eq_indices]
+        # Reset the time origin
+        times -= times[0]
+        if max_lag_fs is None:
+            max_lag_fs = times[-1]
+        if fit_max_fs is None:
+            fit_max_fs = max_lag_fs
+        # The MSD calculation requires uniform sampling
+        dt = np.diff(times)
+        if not np.allclose(dt, np.median(dt), rtol=1e-4, atol=1e-8):
+            raise ValueError("Uniformly spaced trajectory frames are required.")
         symbols = np.array(traj[0].get_chemical_symbols())
         unique_elements = np.unique(symbols)
-        # Get the positions relative to the center of mass
-        positions = np.array([atoms.get_positions() - atoms.get_center_of_mass() for atoms in traj])  # Å
-        r0 = positions[0]  # Å
-        # Get the diffusion coefficients for each atom species
+        # Get the unwrapped positions
+        positions = _get_unwrapped_positions(traj)  # Å
+        # Compute the diffusion coefficient for each element from the MSD
         D = {}
+        msd_dict = {}
+        lag_times = times[times <= max_lag_fs]
+        if len(lag_times) < 2:
+            raise ValueError(
+                "Not enough lag times for MSD calculation, need at least 2 (increase max_lag_fs and/or eq_fraction)."
+            )
         for symbol in unique_elements:
             mask = symbols == symbol
-            # Compute the mean square displacements without variation of time origins
-            msd = np.mean(np.sum((positions[:, mask, :] - r0[mask, :]) ** 2, axis=2), axis=1)  # Å²
-            slope, _ = np.polyfit(times, msd, 1)
-            D[symbol] = slope / 6.0  # Å²/fs
+            pos_species = positions[:, mask, :]  # (len(traj), n_atoms_species, 3)
+            msd = np.zeros_like(lag_times)
+            with Pool(
+                processes=min(n_workers, len(lag_times) - 1),
+                initializer=_init_msd_worker,
+                initargs=(pos_species,),
+            ) as pool:
+                for lag, value in pool.map(_msd_lag_worker, range(1, len(lag_times))):
+                    msd[lag] = value
+            # Linear fit on the desired diffusive interval (avoid ballistic regime and long-time noisy data)
+            fit_mask = (lag_times >= fit_min_fs) & (lag_times <= fit_max_fs)
+            slope, _ = np.polyfit(
+                lag_times[fit_mask],
+                msd[fit_mask],
+                1,
+            )
+            D[symbol] = slope / 6.0
+            msd_dict[symbol] = msd
 
+        if return_msd_lag_times:
+            return D, msd_dict, lag_times
         return D
 
     def fit_arrhenius(self, temperatures: list[int] | list[float], diffusion_coeffs: list[float]) -> dict:
@@ -761,18 +756,22 @@ class MoltenSaltAnalyzer:
         eq_fraction: float = 0.1,
         traj_id: str | None = None,
         tmax_fs: list[int] | np.ndarray | int = 20000,
+        sampling_interval_fs: float | None = None,
     ) -> tuple[np.ndarray | float, tuple[np.ndarray, np.ndarray]]:
-        """Compute shear viscosity using the Green-Kubo relation. The timestep between frames has to be constant.
+        """Compute shear viscosity using the Green-Kubo relation. The timestep between frames has to be constant. The ACF integral uses the trapezoidal rule on the frame grid, which overestimates it for coarse frame spacings. `sampling_interval_fs` evaluates the ACF only at multiples of this interval to make trajectories with different spacings comparable.
 
         Args:
             T (float): Temperature in K. The trajectory with the matching temperature is selected.
             traj_id (str, optional): Identifier for the trajectory, overrides T. Defaults to None.
             eq_fraction (float, optional): Fraction of the trajectory to consider as equilibrated. Defaults to 0.1.
             tmax_fs (int, optional): Maximum correlation time in femtoseconds. Defaults to 20000.
+            sampling_interval_fs (float, optional): Spacing of the grid on which the ACF is integrated, a multiple of the frame
+                spacing. Defaults to None, i.e. the frame spacing.
 
         Raises:
             ValueError: If the timestep between the frames is not constant.
             ValueError: If any of the tmax_fs values are non-positive.
+            ValueError: If sampling_interval_fs is not a multiple of the frame spacing.
 
         Returns:
             Tuple[float, Tuple[np.ndarray, np.ndarray]]: Viscosity in Pa s and the autocorrelation function and times:
@@ -816,6 +815,13 @@ class MoltenSaltAnalyzer:
             axis=0,
         )  # eV²/Å⁶
         ac_times = np.arange(ac_mean.size) * dt  # fs
+        if sampling_interval_fs is not None:
+            stride = int(round(sampling_interval_fs / dt))
+            if stride < 1 or not np.isclose(stride * dt, sampling_interval_fs):
+                raise ValueError(
+                    f"sampling_interval_fs={sampling_interval_fs} is not a multiple of the frame spacing {dt} fs."
+                )
+            ac_mean, ac_times = ac_mean[::stride], ac_times[::stride]
 
         # Get the viscosity coefficient by integrating the autocorrelation function
         cumulative_integral = np.concatenate([[0.0], cumulative_trapezoid(ac_mean, ac_times)])  # eV²/Å⁶ fs
@@ -837,7 +843,7 @@ class MoltenSaltAnalyzer:
         eta_Pa_s_list: list[float] | np.ndarray,
         min_window_size_fs: float = 1000,
         std_threshold_Pa_s: float = 100,
-        slope_threshold: float = 5e-2,
+        slope_threshold: float = 1e-7,
         min_consecutive_windows: int = 1,
     ) -> tuple:
         """Given different values for the viscosity (eta) from different maximal integration times (tmax_fs), finds the longest plateau of a minimum size (min_window_size_fs) and computes the mean and std on that plateau.
@@ -847,7 +853,7 @@ class MoltenSaltAnalyzer:
             eta_Pa_s_list (list[float]): List of viscosity values corresponding to the tmax_fs_list in Pa s.
             min_window_size_fs (float): Minimum size of the window for local statistics in femtoseconds. Defaults to 1000.
             std_threshold_Pa_s (float): Threshold for the standard deviation of the viscosity within a window in Pa s to consider it to a plateau. Defaults to 100.
-            slope_threshold (float): Maximum allowed slope (absolute value) of the viscosity in Pa s per femtosecond. Defaults to 5e-2.
+            slope_threshold (float): Maximum allowed slope (absolute value) for a plateau. Defaults to 1e-7.
             min_consecutive_windows (int, optional): Minimum number of consecutive windows that must satisfy the std and slope criteria to consider a plateau. Defaults to 1.
 
         Raises:
@@ -926,6 +932,7 @@ class MoltenSaltAnalyzer:
         return (plateau_mean, plateau_std, plateau_t)
 
 
+# pylint: disable=too-many-lines
 # Example usage
 if __name__ == "__main__":  # pragma: no cover
     print(
